@@ -26,13 +26,13 @@ namespace neo_lrn
     public class LRN : SmartContract
     {
         //Token Settings
-        public static string Name() => "Loopring NeoToken";
+        public static string Name() => "Loopring Neo Token";
         public static string Symbol() => "LRN";
         public static readonly byte[] Owner = "AZy6n4jDAN4ssEDucN42Cpyj442K4u16r4".ToScriptHash();
         public static byte Decimals() => 8;
-        private const ulong factor = 100000000; //decided by Decimals()
-
-        private const ulong total_amount = 1395076054 * factor; // total token amount
+        private const ulong FACTOR = 100000000; //decided by Decimals()
+        private const ulong TOTAL_AMOUNT = 139507605 * FACTOR; // total token amount
+        public static string TOTAL_SUPPLY = "totalSupply";
 
         [DisplayName("transfer")]
         public static event Action<byte[], byte[], BigInteger> Transferred;
@@ -40,6 +40,17 @@ namespace neo_lrn
         [DisplayName("approve")]
         public static event Action<byte[], byte[], BigInteger> Approval;
 
+        /// <summary>
+        ///   This smart contract is designed to implement NEP-5
+        ///   Parameter List: 0710
+        ///   Return List: 05
+        /// </summary>
+        /// <param name="operation">
+        ///   The method being invoked.
+        /// </param>
+        /// <param name="args">
+        ///   Optional input parameters used by the NEP5 methods. 
+        /// </param>
         public static Object Main(string operation, params object[] args)
         {
             if (Runtime.Trigger == TriggerType.Verification)
@@ -62,6 +73,13 @@ namespace neo_lrn
                 if (operation == "totalSupply") return TotalSupply();
                 if (operation == "name") return Name();
                 if (operation == "symbol") return Symbol();
+                if (operation == "decimals") return Decimals();
+                if (operation == "balanceOf")
+                {
+                    if (args.Length != 1) return 0;
+                    byte[] account = (byte[])args[0];
+                    return BalanceOf(account);
+                }
                 if (operation == "transfer")
                 {
                     if (args.Length != 3) return false;
@@ -70,13 +88,6 @@ namespace neo_lrn
                     BigInteger value = (BigInteger)args[2];
                     return Transfer(from, to, value);
                 }
-                if (operation == "balanceOf")
-                {
-                    if (args.Length != 1) return 0;
-                    byte[] account = (byte[])args[0];
-                    return BalanceOf(account);
-                }
-                if (operation == "decimals") return Decimals();
                 if (operation == "allowance")
                 {
                     return Allowance((byte[])args[0], (byte[])args[1]);
@@ -93,42 +104,26 @@ namespace neo_lrn
             return false;
         }
 
-        // initialization parameters, only once
+        /// <summary>
+        ///   Deploys the tokens to the admin account，only once
+        /// </summary>
+        /// <returns>
+        ///   Transaction Successful?
+        /// </returns>
         public static bool Deploy()
         {
-            byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
+            byte[] total_supply = Storage.Get(Storage.CurrentContext, TOTAL_SUPPLY);
             if (total_supply.Length != 0) return false;
-            Storage.Put(Storage.CurrentContext, Owner, IntToBytes(total_amount));
-            Storage.Put(Storage.CurrentContext, "totalSupply", total_amount);
-            Transferred(null, Owner, total_amount);
+            Storage.Put(Storage.CurrentContext, Owner, IntToBytes(TOTAL_AMOUNT));
+            Storage.Put(Storage.CurrentContext, TOTAL_SUPPLY, TOTAL_AMOUNT);
+            Transferred(null, Owner, TOTAL_AMOUNT);
             return true;
         }
 
         // get the total token supply
         public static BigInteger TotalSupply()
         {
-            return Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
-        }
-
-        // function that is always called when someone wants to transfer tokens.
-        public static bool Transfer(byte[] from, byte[] to, BigInteger value)
-        {
-            if (value <= 0) return false;
-
-            var originatorValue = Storage.Get(Storage.CurrentContext, from);
-            var targetValue = Storage.Get(Storage.CurrentContext, to);
-
-            BigInteger nOriginatorValue = BytesToInt(originatorValue) - value;
-            BigInteger nTargetValue = BytesToInt(targetValue) + value;
-
-            if (nOriginatorValue >= 0 &&
-                 value >= 0)
-            {
-                Storage.Put(Storage.CurrentContext, from, IntToBytes(nOriginatorValue));
-                Storage.Put(Storage.CurrentContext, to, IntToBytes(nTargetValue));
-                return true;
-            }
-            return false;
+            return Storage.Get(Storage.CurrentContext, TOTAL_SUPPLY).AsBigInteger();
         }
 
         // get the account balance of another account with address
@@ -137,37 +132,131 @@ namespace neo_lrn
             return Storage.Get(Storage.CurrentContext, address).AsBigInteger();
         }
 
-
-        // return the amount of tokens that the to account can transfer from the from acount
-        public static BigInteger Allowance(byte[] from, byte[] to) => BytesToInt(Storage.Get(Storage.CurrentContext, from.Concat(to)));
-
-        // transfer an amount from the from account to the to acount if the originator has been approved to transfer the requested amount
-        public static bool TransferFrom(byte[] originator, byte[] from, byte[] to, BigInteger amount)
+        /// <summary>
+        ///   Transfer a token balance to another account.
+        /// </summary>
+        /// <param name="from">
+        ///   The contract invoker.
+        /// </param>
+        /// <param name="to">
+        ///   The account to transfer to.
+        /// </param>
+        /// <param name="amount">
+        ///   The amount to transfer.
+        /// </param>
+        /// <returns>
+        ///   Transaction Successful?
+        /// </returns>
+        public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
         {
             if (!Runtime.CheckWitness(from)) return false;
-            var allValInt = BytesToInt(Storage.Get(Storage.CurrentContext, from.Concat(originator)));
-            var fromValInt = BytesToInt(Storage.Get(Storage.CurrentContext, from));
-            var toValInt = BytesToInt(Storage.Get(Storage.CurrentContext, to));
+            if (amount <= 0) return false;
+            if (from == to) return true;
 
-            if (fromValInt >= amount &&
-                amount >= 0 &&
-                allValInt >= 0)
+            BigInteger originatorValue = BytesToInt(Storage.Get(Storage.CurrentContext, from));
+            if (originatorValue < amount) return false;
+            BigInteger targetValue = BytesToInt(Storage.Get(Storage.CurrentContext, to));
+
+            BigInteger nOriginatorValue = originatorValue - amount;
+            BigInteger nTargetValue = targetValue + amount;
+
+            if (nOriginatorValue > 0)
             {
-                Storage.Put(Storage.CurrentContext, from.Concat(originator), IntToBytes(allValInt - amount));
+                Storage.Put(Storage.CurrentContext, from, IntToBytes(nOriginatorValue));
+            }  else if (nOriginatorValue == 0)
+            {
+                Storage.Delete(Storage.CurrentContext, from);
+            } 
+            Storage.Put(Storage.CurrentContext, to, IntToBytes(nTargetValue));
+            Transferred(from, to, amount);
+            return true;
+        }
+
+        /// <summary>
+        ///   Approves another account to transfer amount tokens from the originator acount by transferForm
+        /// </summary>
+        /// <param name="owner">
+        ///   The contract invoker.
+        /// </param>
+        /// <param name="spender">
+        ///   The account to grant TransferFrom access to.
+        /// </param>
+        /// <param name="amount">
+        ///   The amount to grant TransferFrom access for.
+        /// </param>
+        /// <returns>
+        ///   Transaction Successful?
+        /// </returns>
+        public static bool Approve(byte[] owner, byte[] spender, BigInteger amount)
+        {
+            if (!Runtime.CheckWitness(owner)) return false;
+            if (owner == spender) return true;
+            if (amount < 0) return false;
+            if (amount == 0)
+            {
+                Storage.Delete(Storage.CurrentContext, owner.Concat(spender));
+                Approval(owner, spender, amount);
+                return true;
+            }
+            Storage.Put(Storage.CurrentContext, owner.Concat(spender), amount);
+            Approval(owner, spender, amount);
+            return true;
+        }
+
+        /// <summary>
+        ///   Return the amount of tokens that the spender account can transfer from the owner acount
+        /// </summary>
+        /// <param name="owner">
+        ///   The account who use invoke the Approve method
+        /// </param>
+        /// <param name="spender">
+        ///   The account to grant TransferFrom access to.
+        /// </param>
+        /// <returns>
+        ///   The amount to grant TransferFrom access for
+        /// </returns>
+        public static BigInteger Allowance(byte[] owner, byte[] spender)
+        {
+            return Storage.Get(Storage.CurrentContext, owner.Concat(spender)).AsBigInteger();
+        }
+
+        /// <summary>
+        ///   Transfers an amount from the from account to the to acount if the originator has been approved to transfer the requested amount
+        /// </summary>
+        /// <param name="spender">
+        ///   The contract invoker.
+        /// </param>
+        /// <param name="owner">
+        ///   The account to transfer a balance from.
+        /// </param>
+        /// <param name="to">
+        ///   The account to transfer a balance to.
+        /// </param>
+        /// <param name="amount">
+        ///   The amount to transfer
+        /// </param>
+        /// <returns>
+        ///   Transaction successful?
+        /// </returns>
+        public static bool TransferFrom(byte[] owner, byte[] spender, byte[] to, BigInteger amount)
+        {
+            if (!Runtime.CheckWitness(spender)) return false;
+            BigInteger allValInt = Storage.Get(Storage.CurrentContext, owner.Concat(spender)).AsBigInteger();
+            BigInteger fromValInt = Storage.Get(Storage.CurrentContext, owner).AsBigInteger();
+            BigInteger toValInt = Storage.Get(Storage.CurrentContext, to).AsBigInteger();
+
+            if (amount >= 0 &&
+                allValInt >= amount &&
+                fromValInt >= amount)
+            {
+                Storage.Put(Storage.CurrentContext, owner.Concat(spender), IntToBytes(allValInt - amount));
+                Storage.Put(Storage.CurrentContext, owner, IntToBytes(fromValInt - amount));
                 Storage.Put(Storage.CurrentContext, to, IntToBytes(toValInt + amount));
-                Storage.Put(Storage.CurrentContext, from, IntToBytes(fromValInt - amount));
+                Transferred(owner, to, amount);
                 return true;
             }
             return false;
 
-        }
-
-        // approve the to account to transfer amount tokens from the originator acount
-        public static bool Approve(byte[] originator, byte[] to, BigInteger amount)
-        {
-            Storage.Put(Storage.CurrentContext, originator.Concat(to), IntToBytes(amount));
-            Approval(originator, to, amount);
-            return true;
         }
 
         private static byte[] IntToBytes(BigInteger value)
