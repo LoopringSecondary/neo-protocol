@@ -28,11 +28,11 @@ namespace neo_lrn
         //Token Settings
         public static string Name() => "Loopring Neo Token";
         public static string Symbol() => "LRN";
-        public static readonly byte[] Owner = "AZy6n4jDAN4ssEDucN42Cpyj442K4u16r4".ToScriptHash();
+        public static readonly byte[] Owner = "AdqLRCBxDRTQLDqQE8GMSGU4j2ydYPLQHv".ToScriptHash();
         public static byte Decimals() => 8;
         private const ulong FACTOR = 100000000; //decided by Decimals()
         private const ulong TOTAL_AMOUNT = 139507605 * FACTOR; // total token amount
-        public static string TOTAL_SUPPLY = "totalSupply";
+        private const string TOTAL_SUPPLY = "totalSupply";
 
         [DisplayName("transfer")]
         public static event Action<byte[], byte[], BigInteger> Transferred;
