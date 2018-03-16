@@ -1,0 +1,11 @@
+# LRN Test data on TestNet
+## token scripthash:  
+0x36cef40c189c4291f3595a12a379f84b5d652dbb
+## delpoy:  
+0x55c7d1d5369e6098674a55ee1a5ded8821f29c160e3e7c6342d516d1fb75fc1e
+## transfer:  
+0x8a39464111947d24c1f72d6e74262ec04d564805a838b513c66f4bd478eda6c9
+## approve:  
+0x4ddf247a5bc87540b44b0497353dc8c65e60a5631035bb40b590257774fd7852
+## trandferFrom:  
+0xa942482193d56fca35faabdd1cebaec99cf3ea6332bfabc48011a6d0e312d402
