@@ -149,6 +149,7 @@ namespace neo_lrn
         /// </returns>
         public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
         {
+            if (from.Length != 20 || to.Length != 20) return false;
             if (!Runtime.CheckWitness(from)) return false;
             if (amount <= 0) return false;
             if (from == to) return true;
@@ -189,6 +190,7 @@ namespace neo_lrn
         /// </returns>
         public static bool Approve(byte[] owner, byte[] spender, BigInteger amount)
         {
+            if (owner.Length != 20 || spender.Length != 20) return false;
             if (!Runtime.CheckWitness(owner)) return false;
             if (owner == spender) return true;
             if (amount < 0) return false;
@@ -240,6 +242,7 @@ namespace neo_lrn
         /// </returns>
         public static bool TransferFrom(byte[] owner, byte[] spender, byte[] to, BigInteger amount)
         {
+            if (owner.Length != 20 || spender.Length != 20 || to.Length != 20) return false;
             if (!Runtime.CheckWitness(spender)) return false;
             BigInteger allValInt = Storage.Get(Storage.CurrentContext, owner.Concat(spender)).AsBigInteger();
             BigInteger fromValInt = Storage.Get(Storage.CurrentContext, owner).AsBigInteger();
