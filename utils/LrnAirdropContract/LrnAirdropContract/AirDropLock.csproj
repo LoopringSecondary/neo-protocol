@@ -8,8 +8,8 @@
     <ProjectGuid>{D301927B-A670-4B41-8AAA-BA0CA4B90FAC}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>AirDropLock</RootNamespace>
-    <AssemblyName>AirDropLock</AssemblyName>
+    <RootNamespace>LrnAirdropContract</RootNamespace>
+    <AssemblyName>LrnAirdropContract</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>

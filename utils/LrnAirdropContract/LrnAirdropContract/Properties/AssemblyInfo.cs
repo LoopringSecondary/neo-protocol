@@ -5,13 +5,13 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("AirDropLock")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("LrnAirdropContract")]
+[assembly: AssemblyDescription("Smart contract for Loopring LRN token airdrops")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("AirDropLock")]
-[assembly: AssemblyCopyright("Copyright ©  2018")]
-[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCompany("Loopring Project Ltd")]
+[assembly: AssemblyProduct("LrnAirdropContract")]
+[assembly: AssemblyCopyright("Loopring Foundation ©  2018")]
+[assembly: AssemblyTrademark("Loopring")]
 [assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 

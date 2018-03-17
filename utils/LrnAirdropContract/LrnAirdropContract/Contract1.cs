@@ -3,9 +3,9 @@ using Neo.SmartContract.Framework.Services.Neo;
 using System;
 using System.Numerics;
 
-namespace AirDropLock
+namespace LrnAirdropContract
 {
-    public class AirDropLock : SmartContract
+    public class LrnAirdropContract : SmartContract
     {
         public static readonly byte[] Owner = "XXXXXXXXXXXXXXXXXXXXXXX".ToScriptHash();
         private const int AIRDROP_START_TIME = 88888888;
