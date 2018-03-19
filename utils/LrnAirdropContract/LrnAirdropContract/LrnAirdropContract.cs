@@ -18,7 +18,7 @@ namespace LrnAirdropContract
         static extern object CallLrn(string method, object[] arr);
 
         /// <summary>
-        ///   This smart contract is designed to airdrop and withdrow according to time.
+        ///   This smart contract is designed to airdrop and withdraw according to time.
         ///   Parameter List: 0710
         ///   Return List: 05
         /// </summary>
@@ -49,7 +49,7 @@ namespace LrnAirdropContract
                 if (operation == "deploy")
                 {
                     if (!Runtime.CheckWitness(Owner)) return false;
-                    Storage.Put(Storage.CurrentContext, AIR_DROP_SUPPLY,0);
+                    Storage.Put(Storage.CurrentContext, AIR_DROP_SUPPLY, 0);
                     return true;
                 }
                 if (operation == "deposit")
@@ -102,15 +102,16 @@ namespace LrnAirdropContract
         /// </returns>
         public static bool Withdraw(byte[] account)
         {
-            BigInteger withdrowAmount = CalcAvailableAmount(account);
-            if (withdrowAmount < 1) return false;
+            BigInteger withdrawAmount = CalcAvailableAmount(account);
+            if (withdrawAmount < 1) return false;
             byte[] from = Neo.SmartContract.Framework.Services.System.ExecutionEngine.ExecutingScriptHash;
             // call lrn transfer
-            byte[] rt = (byte[])CallLrn("transfer", new object[] { from, account, withdrowAmount });
+            byte[] rt = (byte[])CallLrn("transfer", new object[] { from, account, withdrawAmount });
             bool succ = rt.AsBigInteger() == 1;
-            if (succ) {
+            if (succ)
+            {
                 BigInteger balance = Storage.Get(Storage.CurrentContext, account).AsBigInteger();
-                Storage.Put(Storage.CurrentContext, account, balance - withdrowAmount);
+                Storage.Put(Storage.CurrentContext, account, balance - withdrawAmount);
             }
             return true;
         }
@@ -131,8 +132,8 @@ namespace LrnAirdropContract
             int time = (int)now - AIRDROP_START_TIME;
             if (time < 0) return 0;
             int n = time / SECONDS_PER_DAY + 1;
-            BigInteger withdrowAmount = balance * n / RATE;
-            return withdrowAmount;
+            BigInteger withdrawAmount = balance * n / RATE;
+            return withdrawAmount;
         }
 
         private static byte[] IntToBytes(BigInteger value)
@@ -148,4 +149,3 @@ namespace LrnAirdropContract
         }
     }
 }
-

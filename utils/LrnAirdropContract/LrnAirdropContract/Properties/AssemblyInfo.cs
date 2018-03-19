@@ -6,12 +6,12 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("LrnAirdropContract")]
-[assembly: AssemblyDescription("Smart contract for Loopring LRN token airdrops")]
+[assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Loopring Project Ltd")]
+[assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("LrnAirdropContract")]
-[assembly: AssemblyCopyright("Loopring Foundation ©  2018")]
-[assembly: AssemblyTrademark("Loopring")]
+[assembly: AssemblyCopyright("Copyright ©  2018")]
+[assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("d301927b-a670-4b41-8aaa-ba0ca4b90fac")]
+[assembly: Guid("97b640bf-acce-484e-980a-25fb8c6b5a9c")]
 
 // Version information for an assembly consists of the following four values:
 //
