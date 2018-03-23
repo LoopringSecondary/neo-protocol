@@ -28,7 +28,7 @@ namespace neo_lrn
         //Token Settings
         public static string Name() => "Loopring Neo Token";
         public static string Symbol() => "LRN";
-        public static readonly byte[] Owner = "AdqLRCBxDRTQLDqQE8GMSGU4j2ydYPLQHv".ToScriptHash();
+        public static readonly byte[] SuperAdmin = "AdqLRCBxDRTQLDqQE8GMSGU4j2ydYPLQHv".ToScriptHash();
         public static byte Decimals() => 8;
         private const ulong FACTOR = 100000000; //decided by Decimals()
         private const ulong TOTAL_AMOUNT = 139507605 * FACTOR; // total token amount
@@ -38,7 +38,7 @@ namespace neo_lrn
         public static event Action<byte[], byte[], BigInteger> Transferred;
 
         [DisplayName("approve")]
-        public static event Action<byte[], byte[], BigInteger> Approval;
+        public static event Action<byte[], byte[], BigInteger> Approved;
 
         /// <summary>
         ///   This smart contract is designed to implement NEP-5
@@ -55,21 +55,16 @@ namespace neo_lrn
         {
             if (Runtime.Trigger == TriggerType.Verification)
             {
-                if (Owner.Length == 20)
+                if (SuperAdmin.Length == 20)
                 {
-                    // if param Owner is script hash
-                    return Runtime.CheckWitness(Owner);
-                }
-                else if (Owner.Length == 33)
-                {
-                    // if param Owner is public key
-                    byte[] signature = operation.AsByteArray();
-                    return VerifySignature(signature, Owner);
+                    // if param SuperAdmin is script hash
+                    return Runtime.CheckWitness(SuperAdmin);
                 }
             }
-            else if (Runtime.Trigger == TriggerType.Application)
+
+            if (Runtime.Trigger == TriggerType.Application)
             {
-                if (operation == "deploy") return Deploy();
+                if (operation == "init") return Init();
                 if (operation == "totalSupply") return TotalSupply();
                 if (operation == "name") return Name();
                 if (operation == "symbol") return Symbol();
@@ -105,28 +100,41 @@ namespace neo_lrn
         }
 
         /// <summary>
-        ///   Deploys the tokens to the admin account，only once
+        ///   Init the lrn tokens to the SuperAdmin account，only once
         /// </summary>
         /// <returns>
         ///   Transaction Successful?
         /// </returns>
-        public static bool Deploy()
+        public static bool Init()
         {
             byte[] total_supply = Storage.Get(Storage.CurrentContext, TOTAL_SUPPLY);
             if (total_supply.Length != 0) return false;
-            Storage.Put(Storage.CurrentContext, Owner, IntToBytes(TOTAL_AMOUNT));
+            Storage.Put(Storage.CurrentContext, SuperAdmin, IntToBytes(TOTAL_AMOUNT));
             Storage.Put(Storage.CurrentContext, TOTAL_SUPPLY, TOTAL_AMOUNT);
-            Transferred(null, Owner, TOTAL_AMOUNT);
+            Transferred(null, SuperAdmin, TOTAL_AMOUNT);
             return true;
         }
 
-        // get the total token supply
+        /// <summary>
+        ///   Get the total token supply
+        /// </summary>
+        /// <returns>
+        ///   total token supply
+        /// </returns>
         public static BigInteger TotalSupply()
         {
             return Storage.Get(Storage.CurrentContext, TOTAL_SUPPLY).AsBigInteger();
         }
 
-        // get the account balance of another account with address
+        /// <summary>
+        ///  Get the balance of the address
+        /// </summary>
+        /// <param name="address">
+        ///  address
+        /// </param>
+        /// <returns>
+        ///   account balance
+        /// </returns>
         public static BigInteger BalanceOf(byte[] address)
         {
             return Storage.Get(Storage.CurrentContext, address).AsBigInteger();
@@ -150,34 +158,35 @@ namespace neo_lrn
         public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
         {
             if (from.Length != 20 || to.Length != 20) return false;
-            if (!Runtime.CheckWitness(from)) return false;
             if (amount <= 0) return false;
+            if (!Runtime.CheckWitness(from)) return false;
             if (from == to) return true;
 
-            BigInteger originatorValue = BytesToInt(Storage.Get(Storage.CurrentContext, from));
-            if (originatorValue < amount) return false;
-            BigInteger targetValue = BytesToInt(Storage.Get(Storage.CurrentContext, to));
+            BigInteger fromOrigBalance = BytesToInt(Storage.Get(Storage.CurrentContext, from));
+            if (fromOrigBalance < amount) return false;
 
-            BigInteger nOriginatorValue = originatorValue - amount;
-            BigInteger nTargetValue = targetValue + amount;
+            BigInteger toOrigBalance = BytesToInt(Storage.Get(Storage.CurrentContext, to));
 
-            if (nOriginatorValue > 0)
+            BigInteger fromNewBalance = fromOrigBalance - amount;
+            BigInteger toNewBalance = toOrigBalance + amount;
+
+            if (fromNewBalance > 0)
             {
-                Storage.Put(Storage.CurrentContext, from, IntToBytes(nOriginatorValue));
-            }  else if (nOriginatorValue == 0)
+                Storage.Put(Storage.CurrentContext, from, IntToBytes(fromNewBalance));
+            }  else if (fromNewBalance == 0)
             {
                 Storage.Delete(Storage.CurrentContext, from);
             } 
-            Storage.Put(Storage.CurrentContext, to, IntToBytes(nTargetValue));
+            Storage.Put(Storage.CurrentContext, to, IntToBytes(toNewBalance));
             Transferred(from, to, amount);
             return true;
         }
 
         /// <summary>
-        ///   Approves another account to transfer amount tokens from the originator acount by transferForm
+        ///   Approve another account to transfer amount tokens from the owner acount by transferForm
         /// </summary>
         /// <param name="owner">
-        ///   The contract invoker.
+        ///   The account to invoke approve.
         /// </param>
         /// <param name="spender">
         ///   The account to grant TransferFrom access to.
@@ -197,19 +206,19 @@ namespace neo_lrn
             if (amount == 0)
             {
                 Storage.Delete(Storage.CurrentContext, owner.Concat(spender));
-                Approval(owner, spender, amount);
+                Approved(owner, spender, amount);
                 return true;
             }
             Storage.Put(Storage.CurrentContext, owner.Concat(spender), amount);
-            Approval(owner, spender, amount);
+            Approved(owner, spender, amount);
             return true;
         }
 
         /// <summary>
-        ///   Return the amount of tokens that the spender account can transfer from the owner acount
+        ///   Return the amount of the tokens that the spender could transfer from the owner acount
         /// </summary>
         /// <param name="owner">
-        ///   The account who use invoke the Approve method
+        ///   The account to invoke the Approve method
         /// </param>
         /// <param name="spender">
         ///   The account to grant TransferFrom access to.
@@ -223,13 +232,13 @@ namespace neo_lrn
         }
 
         /// <summary>
-        ///   Transfers an amount from the from account to the to acount if the originator has been approved to transfer the requested amount
+        ///   Transfer an amount from the owner account to the to acount if the spender has been approved to transfer the requested amount
         /// </summary>
-        /// <param name="spender">
-        ///   The contract invoker.
-        /// </param>
         /// <param name="owner">
         ///   The account to transfer a balance from.
+        /// </param>
+        /// <param name="spender">
+        ///   The contract invoker.
         /// </param>
         /// <param name="to">
         ///   The account to transfer a balance to.
@@ -244,17 +253,32 @@ namespace neo_lrn
         {
             if (owner.Length != 20 || spender.Length != 20 || to.Length != 20) return false;
             if (!Runtime.CheckWitness(spender)) return false;
-            BigInteger allValInt = Storage.Get(Storage.CurrentContext, owner.Concat(spender)).AsBigInteger();
-            BigInteger fromValInt = Storage.Get(Storage.CurrentContext, owner).AsBigInteger();
-            BigInteger toValInt = Storage.Get(Storage.CurrentContext, to).AsBigInteger();
+            BigInteger allowance = Storage.Get(Storage.CurrentContext, owner.Concat(spender)).AsBigInteger();
+            BigInteger fromOrigBalance = Storage.Get(Storage.CurrentContext, owner).AsBigInteger();
+            BigInteger toOrigBalance = Storage.Get(Storage.CurrentContext, to).AsBigInteger();
 
             if (amount >= 0 &&
-                allValInt >= amount &&
-                fromValInt >= amount)
+                allowance >= amount &&
+                fromOrigBalance >= amount)
             {
-                Storage.Put(Storage.CurrentContext, owner.Concat(spender), IntToBytes(allValInt - amount));
-                Storage.Put(Storage.CurrentContext, owner, IntToBytes(fromValInt - amount));
-                Storage.Put(Storage.CurrentContext, to, IntToBytes(toValInt + amount));
+                if(allowance - amount == 0)
+                {
+                    Storage.Delete(Storage.CurrentContext, owner.Concat(spender));
+                } else
+                {
+                    Storage.Put(Storage.CurrentContext, owner.Concat(spender), IntToBytes(allowance - amount));
+                }
+
+                if (fromOrigBalance - amount == 0)
+                {
+                    Storage.Delete(Storage.CurrentContext, owner);
+                }
+                else
+                {
+                    Storage.Put(Storage.CurrentContext, owner, IntToBytes(fromOrigBalance - amount));
+                }
+
+                Storage.Put(Storage.CurrentContext, to, IntToBytes(toOrigBalance + amount));
                 Transferred(owner, to, amount);
                 return true;
             }
