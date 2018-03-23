@@ -1,5 +1,6 @@
 ﻿using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
+using Neo.SmartContract.Framework.Services.System;
 using System;
 using System.Numerics;
 
@@ -7,14 +8,15 @@ namespace LrnAirdropContract
 {
     public class LrnAirdropContract : SmartContract
     {
-        public static readonly byte[] Owner = "ASXA7rzm9hnrnhbReFEKVHknWpLnGhnN8T".ToScriptHash();
+        public static readonly byte[] SuperAdmin = "ASXA7rzm9hnrnhbReFEKVHknWpLnGhnN8T".ToScriptHash();
+        private static readonly byte[] neo_asset_id = { 155, 124, 255, 218, 166, 116, 190, 174, 15, 147, 14, 190, 96, 133, 175, 144, 147, 229, 254, 86, 179, 74, 92, 34, 12, 205, 207, 110, 252, 51, 111, 197 };
         private const int AIRDROP_START_TIME = 88888888;
         private const string AIR_DROP_SUPPLY = "airdropSupply";
         private const ulong RATE = 730;//two years
         private const int SECONDS_PER_DAY = 86400;
         public delegate byte[] DynamicCall(string method, object[] arr);
 
-        [Appcall("36cef40c189c4291f3595a12a379f84b5d652dbb")]
+        [Appcall("06c29b2661be437e9c38485f8797cb4c59ed5999")]
         static extern object CallLrn(string method, object[] arr);
 
         /// <summary>
@@ -26,29 +28,39 @@ namespace LrnAirdropContract
         ///   The method being invoked.
         /// </param>
         /// <param name="args">
-        ///   Optional input parameters used by the NEP5 methods. 
+        ///   Optional input parameters. 
         /// </param>
         public static Object Main(string operation, params object[] args)
         {
             if (Runtime.Trigger == TriggerType.Verification)
             {
-                if (Owner.Length == 20)
+                if (SuperAdmin.Length == 20)
                 {
-                    // if param Owner is script hash
-                    return Runtime.CheckWitness(Owner);
+                    return Runtime.CheckWitness(SuperAdmin);
                 }
-                else if (Owner.Length == 33)
+
+                Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
+                var inputs = tx.GetInputs();
+                var outputs = tx.GetOutputs();
+                var attributes = tx.GetAttributes();
+                if(inputs.Length !=1 || outputs.Length != 1 || attributes.Length != 0)
                 {
-                    // if param Owner is public key
-                    byte[] signature = operation.AsByteArray();
-                    return VerifySignature(signature, Owner);
+                    return false;
                 }
+
+                if(outputs[0].AssetId == neo_asset_id && outputs[0].Value == 1)
+                {
+                    return true;
+                }
+
+                return false;
             }
-            else if (Runtime.Trigger == TriggerType.Application)
+
+            if (Runtime.Trigger == TriggerType.Application)
             {
                 if (operation == "deploy")
                 {
-                    if (!Runtime.CheckWitness(Owner)) return false;
+                    if (!Runtime.CheckWitness(SuperAdmin)) return false;
                     Storage.Put(Storage.CurrentContext, AIR_DROP_SUPPLY, 0);
                     return true;
                 }
@@ -81,7 +93,7 @@ namespace LrnAirdropContract
         /// </returns>
         public static bool Deposit(object[] args)
         {
-            if (!Runtime.CheckWitness(Owner)) return false;
+            if (!Runtime.CheckWitness(SuperAdmin)) return false;
             if (args.Length != 2) return false;
             string account = (string)args[0];
             BigInteger depositAmount = (BigInteger)args[1];
@@ -92,10 +104,10 @@ namespace LrnAirdropContract
         }
 
         /// <summary>
-        ///   Withdraw the available amount to an account.
+        ///   Withdraw the available amount to the account.
         /// </summary>
         /// <param name="account">
-        ///   The contract invoker.
+        ///   The account to withdraw.
         /// </param>
         /// <returns>
         ///   Transaction Successful?
