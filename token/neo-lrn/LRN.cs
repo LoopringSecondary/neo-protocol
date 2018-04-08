@@ -28,7 +28,7 @@ namespace neo_lrn
         //Token Settings
         public static string Name() => "Loopring Neo Token";
         public static string Symbol() => "LRN";
-        public static readonly byte[] SuperAdmin = "AdqLRCBxDRTQLDqQE8GMSGU4j2ydYPLQHv".ToScriptHash();
+        public static readonly byte[] SuperAdmin = "AQ4xLmPNT2NimUhxcdrN2nfv3HdUVbcB2F".ToScriptHash();
         public static byte Decimals() => 8;
         private const ulong FACTOR = 100000000; //decided by Decimals()
         private const ulong TOTAL_AMOUNT = 139507605 * FACTOR; // total token amount
@@ -55,11 +55,7 @@ namespace neo_lrn
         {
             if (Runtime.Trigger == TriggerType.Verification)
             {
-                if (SuperAdmin.Length == 20)
-                {
-                    // if param SuperAdmin is script hash
-                    return Runtime.CheckWitness(SuperAdmin);
-                }
+                return Runtime.CheckWitness(SuperAdmin);
             }
 
             if (Runtime.Trigger == TriggerType.Application)
