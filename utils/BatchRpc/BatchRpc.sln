@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2010
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BatchRpc", "BatchRpc\BatchRpc.csproj", "{CD3A6F09-ADF7-402C-96C9-C638D822473D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CD3A6F09-ADF7-402C-96C9-C638D822473D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD3A6F09-ADF7-402C-96C9-C638D822473D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD3A6F09-ADF7-402C-96C9-C638D822473D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD3A6F09-ADF7-402C-96C9-C638D822473D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {603D30F2-DD72-4104-885B-859D5CB1222F}
+	EndGlobalSection
+EndGlobal
