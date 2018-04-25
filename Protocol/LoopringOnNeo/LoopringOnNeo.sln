@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NameRegistry", "NameRegistr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TokenTransferDelegate", "TokenTransferDelegate\TokenTransferDelegate.csproj", "{899ACA89-4974-4A0A-B553-95E5EE92883E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoopringProtocol", "LoopringProtocol\LoopringProtocol.csproj", "{1B754108-0316-45B5-B6E2-751BF64216D5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{899ACA89-4974-4A0A-B553-95E5EE92883E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{899ACA89-4974-4A0A-B553-95E5EE92883E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{899ACA89-4974-4A0A-B553-95E5EE92883E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1B754108-0316-45B5-B6E2-751BF64216D5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1B754108-0316-45B5-B6E2-751BF64216D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1B754108-0316-45B5-B6E2-751BF64216D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1B754108-0316-45B5-B6E2-751BF64216D5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
