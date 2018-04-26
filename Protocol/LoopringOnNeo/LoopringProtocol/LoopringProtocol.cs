@@ -1,5 +1,6 @@
 ﻿using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
+using Neo.SmartContract.Framework.Services.System;
 using System;
 using System.ComponentModel;
 using System.Numerics;
@@ -20,6 +21,8 @@ namespace LoopringProtocol
 
         private static uint ringIndex = 0;
 
+        public delegate object NEP5Contract(string method, object[] args);
+
         [DisplayName("OrderCancelled")]
         public static event Action<byte[], BigInteger> OrderCancelled; //(ownerHash, name)
 
@@ -28,6 +31,9 @@ namespace LoopringProtocol
 
         [DisplayName("RingMined")]
         public static event Action<BigInteger, byte[]> RingMined; //(ringIndex, ownerHash)
+
+        [DisplayName("TransferFromed")]
+        public static event Action<byte[], byte[], byte[], BigInteger> TransferFromed; // (assetId, owner, to, amount)
 
         private struct OrderStatus
         {
@@ -100,7 +106,40 @@ namespace LoopringProtocol
 
                 if (operation == "submitRing")
                 {
-                    //RingMined();
+                    if (args.Length != 3)
+                    {
+                        return false;
+                    }
+                    byte[][] addrs = (byte[][])args[0];
+                    int orderNum = addrs.Length;
+                    if (orderNum < 2) return false;
+
+                    byte[][] tokenAddrs = (byte[][])args[1];
+                    if (tokenAddrs.Length != orderNum) return false;
+
+                    BigInteger[] values = (BigInteger[])args[2];
+                    if (values.Length != orderNum) return false;
+
+                    for(int i = 0; i < orderNum; i++)
+                    {
+                        byte[] owner = addrs[i];
+                        byte[] to = new byte[] { 0 };
+                        byte[] assetId = tokenAddrs[i];
+                        BigInteger amount = values[i];
+                        if (i == orderNum - 1)
+                        {
+                            to = addrs[0];
+                        } else {
+                            to = addrs[i + 1];
+                        }
+
+                        bool result = TransferToken(assetId, owner, to, amount);
+                        if (!result)
+                        {
+                            throw new Exception();
+                        }
+                    }
+
                     return true;
                 }
 
@@ -167,6 +206,44 @@ namespace LoopringProtocol
                 splitS = 0,
                 splitB = 0
             };
+        }
+
+        /// <summary>
+        ///   Transfer nep5 token by transferFrom.
+        /// </summary>
+        /// <param name="assetId">
+        ///   The nep5 token assetId.
+        /// </param>
+        /// <param name="owner">
+        ///   The account who invoke approve at the begin.
+        /// </param>
+        /// <param name="to">
+        ///   The target account.
+        /// </param>
+        /// <param name="amount">
+        ///   The account to tranfer.
+        /// </param>
+        /// <returns>
+        ///   Transaction Successful?
+        /// </returns>
+        public static bool TransferToken(byte[] assetId, byte[] owner, byte[] to, BigInteger amount)
+        {
+            if (assetId.Length != 20 || owner.Length != 20 || to.Length != 20)
+            {
+                return false;
+            }
+
+            var args = new object[] { owner, ExecutionEngine.ExecutingScriptHash, to, amount };
+            var contract = (NEP5Contract)assetId.ToDelegate();
+            bool result = (bool)contract("transferFrom", args);
+            if (!result)
+            {
+                Runtime.Log("Failed to transferFrom NEP-5 tokens!");
+                return false;
+            }
+
+            TransferFromed(assetId, owner, to, amount);
+            return true;
         }
     }
 }
