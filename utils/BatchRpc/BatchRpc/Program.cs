@@ -17,41 +17,49 @@ namespace json_rpc
         /// <param name="args"></param>
         static void Main(string[] args)
         {
+            List<string> outputs = new List<string>();
+            int total = 0;
             try
             {
-                List<string> inputs = readFileToList("input.txt");
-                List<string> outputs = new List<string>();
-                int total = 0;
-                string front = "{'jsonrpc': '2.0', 'method': 'sendmany', 'params': [[{'asset': '0x06fa8be9b6609d963e8fc63977b9f8dc5f10895f','value': ";
-                string middle = ",'address': '";
-                string last = "'}]],  'id': 1} ";
+                List<string> inputs = readFileToList("inputs206.txt");
+
+                string front = "{'jsonrpc': '2.0', 'method': '', 'params': ['0x06fa8be9b6609d963e8fc63977b9f8dc5f10895f', '";
+                string middle = "', ";
+                //string last = "'}]],  'id': 1} ";
+                string last = "],  'id': 1} ";
                 foreach (string input in inputs)
                 {
                     int amount = Convert.ToInt32(input.Substring(35));
                     string addr = input.Substring(0, 34);
-                    string paramter = front + amount + middle + addr + last;
+                    //string paramter = front + amount + middle + addr + last;
+                    string paramter = front + addr + middle + amount + last;
                     Console.WriteLine(amount);
                     Console.WriteLine(input);
                     Console.WriteLine(paramter);
                     total += amount;
-                    var r = PostWebRequest("http://10.137.104.96:10332", paramter);
-                    Console.WriteLine(ToGB2312(r));
+                    var r = PostWebRequest("http://10.137.111.218:10332", paramter);
+                    //Console.WriteLine(ToGB2312(r));
                     var json = batchRpc.MyJson.Parse(ToGB2312(r)).AsDict();
                     var txid = json["result"].AsDict()["txid"].ToString();
                     if (txid.Length != 66)
                     {
+                        writeListToFile(outputs, "outputs206.txt");
+                        Console.WriteLine(total);
+                        Console.ReadLine();
                         throw new Exception();
                     }
                     Console.WriteLine(txid.ToString());
                     string output = addr + "  " + amount + "  " + txid;
                     outputs.Add(output);
                 }
-                writeListToFile(outputs, "outputs.txt");
+                writeListToFile(outputs, "outputs206.txt");
                 Console.WriteLine(total);
                 Console.ReadLine();
             }
             catch
             {
+                writeListToFile(outputs, "outputs206.txt");
+                Console.WriteLine(total);
                 Console.WriteLine("Exception!");
                 Console.ReadLine();
             }

@@ -8,15 +8,15 @@ namespace LrnAirdropContract
 {
     public class LrnAirdropContract : SmartContract
     {
-        public static readonly byte[] SuperAdmin = "ASXA7rzm9hnrnhbReFEKVHknWpLnGhnN8T".ToScriptHash();
+        public static readonly byte[] SuperAdmin = "AR7W16oCGSyKF4ebGjod9EFFwTUyRPZV9o".ToScriptHash();
         private static readonly byte[] GAS_ASSET_ID = { 231, 45, 40, 105, 121, 238, 108, 177, 183, 230, 93, 253, 223, 178, 227, 132, 16, 11, 141, 20, 142, 119, 88, 222, 66, 228, 22, 139, 113, 121, 44, 96 };
         private static readonly byte INVOCATION_TRANSACTION_TYPE = 0xd1;
         private const int AIRDROP_START_TIME = 1514736000;//2018-01-01 00:00:00
         private const string AIR_DROP_SUPPLY = "airdropSupply";
-        private const ulong PERIOD = 730;//two years
         private const int SECONDS_PER_DAY = 86400;
+        private const double RATE = 0.00136986301;//1/730
 
-        [Appcall("06c29b2661be437e9c38485f8797cb4c59ed5999")]
+        [Appcall("06fa8be9b6609d963e8fc63977b9f8dc5f10895f")]
         static extern object CallLrn(string method, object[] arr);
 
         /// <summary>
@@ -88,6 +88,18 @@ namespace LrnAirdropContract
                 {
                     return Storage.Get(Storage.CurrentContext, AIR_DROP_SUPPLY).AsBigInteger();
                 }
+                if (operation == "queryAirDropBalance")
+                {
+                    if (args.Length != 1) return false;
+                    byte[] accountScriptHash = (byte[])args[0];
+                    return Storage.Get(Storage.CurrentContext, accountScriptHash).AsBigInteger();
+                }
+                if (operation == "queryAvailableBalance")
+                {
+                    if (args.Length != 1) return false;
+                    byte[] accountScriptHash = (byte[])args[0];
+                    return CalcAvailableAmount(accountScriptHash);
+                }
             }
             return false;
         }
@@ -150,11 +162,10 @@ namespace LrnAirdropContract
         {
             BigInteger balance = Storage.Get(Storage.CurrentContext, account).AsBigInteger();
             if (balance <= 1) return balance;
-            uint now = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp;
-            int time = (int)now - AIRDROP_START_TIME;
-            if (time < 0) return 0;
-            int n = time / SECONDS_PER_DAY + 1;
-            BigInteger withdrawAmount = balance * n / PERIOD;
+            BigInteger now = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp;
+            if (now < AIRDROP_START_TIME) return 0;
+            BigInteger holdDays = (now - AIRDROP_START_TIME) / SECONDS_PER_DAY + 1;
+            BigInteger withdrawAmount = (BigInteger)((double)balance * (double)holdDays * RATE);
             return withdrawAmount;
         }
     }
