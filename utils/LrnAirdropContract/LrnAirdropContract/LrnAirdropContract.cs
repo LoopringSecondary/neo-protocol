@@ -2,6 +2,7 @@
 using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
 using System;
+using System.ComponentModel;
 using System.Numerics;
 
 namespace LrnAirdropContract
@@ -9,15 +10,26 @@ namespace LrnAirdropContract
     public class LrnAirdropContract : SmartContract
     {
         public static readonly byte[] SuperAdmin = "AR7W16oCGSyKF4ebGjod9EFFwTUyRPZV9o".ToScriptHash();
-        private static readonly byte[] GAS_ASSET_ID = { 231, 45, 40, 105, 121, 238, 108, 177, 183, 230, 93, 253, 223, 178, 227, 132, 16, 11, 141, 20, 142, 119, 88, 222, 66, 228, 22, 139, 113, 121, 44, 96 };
         private static readonly byte INVOCATION_TRANSACTION_TYPE = 0xd1;
-        private const int AIRDROP_START_TIME = 1514736000;//2018-01-01 00:00:00
+        private const int FIRST_AIRDROP_START_TIME = 1530720000;//2018-07-05 00:00:00
+        private const int SECOND_AIRDROP_START_TIME = 1536076800;//2018-09-05 00:00:00
+        private const int THIRD_AIRDROP_START_TIME = 1541347200;//2018-11-05 00:00:00
+        private const Int64 TOTAL_AMOUNT_PER_PHASE = 2790152100000000;
+        private const Int64 TOTAL_AIRDROP_AMOUNT = 8370456300000000;
         private const string AIR_DROP_SUPPLY = "airdropSupply";
+        private const string LAST_WITHDRAW_TIME = "lastWithdrawTime";
         private const int SECONDS_PER_DAY = 86400;
-        private const double RATE = 0.00136986301;//1/730
+        private const int PERIOD = 730;
+        public static readonly byte[] FIRST_PHASE_PREFIX = "firstPhase".AsByteArray();
+        public static readonly byte[] SECOND_PHASE_PREFIX = "secondPhase".AsByteArray();
+        public static readonly byte[] THIRD_PHASE_PREFIX = "thirdPhase".AsByteArray();
+
 
         [Appcall("06fa8be9b6609d963e8fc63977b9f8dc5f10895f")]
         static extern object CallLrn(string method, object[] arr);
+
+        [DisplayName("withdraw")]
+        public static event Action<byte[], BigInteger> Withdrew;
 
         /// <summary>
         ///   This smart contract is designed to airdrop and withdraw according to time.
@@ -34,32 +46,25 @@ namespace LrnAirdropContract
         {
             if (Runtime.Trigger == TriggerType.Verification)
             {
+                if (Runtime.CheckWitness(SuperAdmin)) return true;
+
                 Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
                 var type = tx.Type;
-                var inputs = tx.GetInputs();
-                var outputs = tx.GetOutputs();
-                var attributes = tx.GetAttributes();
 
                 if (type != INVOCATION_TRANSACTION_TYPE) return false;
-
-                if (inputs.Length != 1 || outputs.Length != 1 || attributes.Length != 0)
-                {
-                    return false;
-                }
-
-                if (outputs[0].AssetId != GAS_ASSET_ID && outputs[0].Value != 1)
-                {
-                    return false;
-                }
 
                 var invocationTransaction = (InvocationTransaction)tx;
                 if (invocationTransaction.Script.Length != 53)
                 {
+                    Runtime.Log("invocationTransaction.Script.Length illegal!");
                     return false;
                 }
 
-                if (invocationTransaction.Script.Range(24,29) != "withdraw".AsByteArray().Concat(new byte[]{0x67}).Concat(ExecutionEngine.ExecutingScriptHash))
+                if (invocationTransaction.Script[0] != 0x14) return false;
+
+                if (invocationTransaction.Script.Range(21,29) != (new byte[] { 0x51, 0xc1, 0x09 }).Concat("withdraw".AsByteArray()).Concat(new byte[]{0x67}).Concat(ExecutionEngine.ExecutingScriptHash))
                 {
+                    Runtime.Log("invocationTransaction.Script illegal!");
                     return false;
                 }
 
@@ -98,7 +103,20 @@ namespace LrnAirdropContract
                 {
                     if (args.Length != 1) return false;
                     byte[] accountScriptHash = (byte[])args[0];
-                    return CalcAvailableAmount(accountScriptHash);
+                    return CalcTotalAvailableAmount(accountScriptHash);
+                }
+                if (operation == "setWithdrawSwitch")
+                {
+                    if (!Runtime.CheckWitness(SuperAdmin)) return false;
+                    if (args.Length != 1) return false;
+                    if((string)args[0] == "on")
+                    {
+                        Storage.Put(Storage.CurrentContext, "WithdrawSwitch", 1);
+                    } else
+                    {
+                        Storage.Put(Storage.CurrentContext, "WithdrawSwitch", 0);
+                    }
+                    return true;
                 }
             }
             return false;
@@ -116,12 +134,19 @@ namespace LrnAirdropContract
         public static bool Deposit(object[] args)
         {
             if (!Runtime.CheckWitness(SuperAdmin)) return false;
+
             if (args.Length != 2) return false;
-            string account = (string)args[0];
+            byte[] account = (byte[])args[0];
+            if (account.Length != 20) return false;
+
             BigInteger depositAmount = (BigInteger)args[1];
-            Storage.Put(Storage.CurrentContext, account, depositAmount);
+            if (depositAmount <= 0 || depositAmount > TOTAL_AMOUNT_PER_PHASE) return false;
             BigInteger supply = Storage.Get(Storage.CurrentContext, AIR_DROP_SUPPLY).AsBigInteger();
+            if ((supply + depositAmount) > TOTAL_AIRDROP_AMOUNT) return false;
+
+            Storage.Put(Storage.CurrentContext, account, depositAmount);
             Storage.Put(Storage.CurrentContext, AIR_DROP_SUPPLY, supply + depositAmount);
+
             return true;
         }
 
@@ -136,37 +161,109 @@ namespace LrnAirdropContract
         /// </returns>
         public static bool Withdraw(byte[] account)
         {
-            BigInteger withdrawAmount = CalcAvailableAmount(account);
+            BigInteger withdrawSwitch = Storage.Get(Storage.CurrentContext, "WithdrawSwitch").AsBigInteger();
+            if (withdrawSwitch == 0) return false;
+
+            BigInteger firstAvailbableAmount = CalcAvailableAmount(account, FIRST_PHASE_PREFIX);
+            BigInteger secondAvailbableAmount = CalcAvailableAmount(account, SECOND_PHASE_PREFIX);
+            BigInteger thirdAvailbableAmount = CalcAvailableAmount(account, THIRD_PHASE_PREFIX);
+            BigInteger withdrawAmount = firstAvailbableAmount + secondAvailbableAmount + thirdAvailbableAmount;
+
             if (withdrawAmount < 1) return false;
+
             byte[] from = Neo.SmartContract.Framework.Services.System.ExecutionEngine.ExecutingScriptHash;
             // call lrn transfer
             byte[] rt = (byte[])CallLrn("transfer", new object[] { from, account, withdrawAmount });
             bool succ = rt.AsBigInteger() == 1;
             if (succ)
             {
-                BigInteger balance = Storage.Get(Storage.CurrentContext, account).AsBigInteger();
-                Storage.Put(Storage.CurrentContext, account, balance - withdrawAmount);
+                if(firstAvailbableAmount > 0)
+                {
+                    BigInteger balance = Storage.Get(Storage.CurrentContext, FIRST_PHASE_PREFIX.Concat(account)).AsBigInteger();
+                    Storage.Put(Storage.CurrentContext, account, balance - firstAvailbableAmount);
+                }
+                if (secondAvailbableAmount > 0)
+                {
+                    BigInteger balance = Storage.Get(Storage.CurrentContext, SECOND_PHASE_PREFIX.Concat(account)).AsBigInteger();
+                    Storage.Put(Storage.CurrentContext, account, balance - secondAvailbableAmount);
+                }
+                if (thirdAvailbableAmount > 0)
+                {
+                    BigInteger balance = Storage.Get(Storage.CurrentContext, THIRD_PHASE_PREFIX.Concat(account)).AsBigInteger();
+                    Storage.Put(Storage.CurrentContext, account, balance - thirdAvailbableAmount);
+                }
+
+                BigInteger now = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp;
+                Storage.Put(Storage.CurrentContext, account.Concat(LAST_WITHDRAW_TIME.AsByteArray()), now);
+                Withdrew(account, withdrawAmount);
             }
             return true;
         }
 
         /// <summary>
-        ///   Calculate the available amount for the account.
+        ///  Calculate the available amount to withdraw for the account.
         /// </summary>
         /// <param name="account">
+        ///  the account to withdraw
+        /// </param>
+        /// <param name="phase">
+        ///  The phase of the airdrop.
+        /// </param>
+        /// <returns>
+        ///  available amount to withdraw per phase
+        /// </returns>
+        public static BigInteger CalcAvailableAmount(byte[] account, byte[] phase)
+        {
+            if (account.Length != 20) return 0;
+            BigInteger amount = Storage.Get(Storage.CurrentContext, phase.Concat(account)).AsBigInteger();
+            if (amount < 1) return 0;
+            BigInteger now = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp;
+            if (now < FIRST_AIRDROP_START_TIME) return 0;
+            BigInteger lastWithdrawTime = Storage.Get(Storage.CurrentContext, account.Concat(LAST_WITHDRAW_TIME.AsByteArray())).AsBigInteger();
+            BigInteger holdDays = 0;
+            BigInteger totalAvailableAmount = 0;
+            BigInteger startTime = 0;
+            if (phase == FIRST_PHASE_PREFIX)
+            {
+                startTime = FIRST_AIRDROP_START_TIME;
+            }
+            if (phase == SECOND_PHASE_PREFIX)
+            {
+                startTime = SECOND_AIRDROP_START_TIME;
+            }
+            if (phase == THIRD_PHASE_PREFIX)
+            {
+                startTime = THIRD_AIRDROP_START_TIME;
+            }
+
+            if (lastWithdrawTime > FIRST_AIRDROP_START_TIME)
+            {
+                holdDays = (now - lastWithdrawTime) / SECONDS_PER_DAY + 1;
+            } else
+            {
+                holdDays = (now - startTime) / SECONDS_PER_DAY + 1;
+            }
+
+            BigInteger availbableAmount = amount * holdDays / PERIOD;
+            return availbableAmount;
+        }
+
+        /// <summary>
+        ///  Calculate the available amount to withdraw for the account.
+        /// </summary>
+        /// <param name="account">
+        ///  the account to withdraw
         /// </param>
         /// <returns>
         ///  available amount to withdraw
         /// </returns>
-        public static BigInteger CalcAvailableAmount(byte[] account)
+        public static BigInteger CalcTotalAvailableAmount(byte[] account)
         {
-            BigInteger balance = Storage.Get(Storage.CurrentContext, account).AsBigInteger();
-            if (balance <= 1) return balance;
-            BigInteger now = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp;
-            if (now < AIRDROP_START_TIME) return 0;
-            BigInteger holdDays = (now - AIRDROP_START_TIME) / SECONDS_PER_DAY + 1;
-            BigInteger withdrawAmount = (BigInteger)((double)balance * (double)holdDays * RATE);
-            return withdrawAmount;
+            BigInteger firstAvailbableAmount = CalcAvailableAmount(account, FIRST_PHASE_PREFIX);
+            BigInteger secondAvailbableAmount = CalcAvailableAmount(account, SECOND_PHASE_PREFIX);
+            BigInteger thirdAvailbableAmount = CalcAvailableAmount(account, THIRD_PHASE_PREFIX);
+            BigInteger availableAmount = firstAvailbableAmount + secondAvailbableAmount + thirdAvailbableAmount;
+            return availableAmount;
         }
     }
 }
