@@ -17,6 +17,31 @@ namespace json_rpc
         /// <param name="args"></param>
         static void Main(string[] args)
         {
+            //SendAsset();
+            SendRawTransaction();
+        }
+
+        public static void SendRawTransaction()
+        {
+            List<string> inputs = readFileToList("inputs206.txt");
+
+            string paramter = "{'jsonrpc': '2.0', 'method': 'sendrawtransaction', 'params': [''],  'id': 1}";
+            var r = PostWebRequest("http://localhost:10332", paramter);
+            Console.WriteLine(ToGB2312(r));
+            var json = batchRpc.MyJson.Parse(ToGB2312(r)).AsDict();
+            var txid = json["result"].AsDict()["txid"].ToString();
+            if (txid.Length != 66)
+            {
+                Console.WriteLine(paramter);
+                Console.ReadLine();
+                throw new Exception();
+            }
+            Console.WriteLine("Txid: " + txid);
+        }
+
+
+        public static void SendAsset()
+        {
             List<string> outputs = new List<string>();
             int total = 0;
             try
@@ -25,19 +50,17 @@ namespace json_rpc
 
                 string front = "{'jsonrpc': '2.0', 'method': '', 'params': ['0x06fa8be9b6609d963e8fc63977b9f8dc5f10895f', '";
                 string middle = "', ";
-                //string last = "'}]],  'id': 1} ";
                 string last = "],  'id': 1} ";
                 foreach (string input in inputs)
                 {
                     int amount = Convert.ToInt32(input.Substring(35));
                     string addr = input.Substring(0, 34);
-                    //string paramter = front + amount + middle + addr + last;
                     string paramter = front + addr + middle + amount + last;
                     Console.WriteLine(amount);
                     Console.WriteLine(input);
                     Console.WriteLine(paramter);
                     total += amount;
-                    var r = PostWebRequest("http://10.137.111.218:10332", paramter);
+                    var r = PostWebRequest("http://localhost:10332", paramter);
                     //Console.WriteLine(ToGB2312(r));
                     var json = batchRpc.MyJson.Parse(ToGB2312(r)).AsDict();
                     var txid = json["result"].AsDict()["txid"].ToString();
