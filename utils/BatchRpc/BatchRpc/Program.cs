@@ -18,7 +18,20 @@ namespace json_rpc
         static void Main(string[] args)
         {
             //SendAsset();
-            SendRawTransaction();
+            //SendRawTransaction();
+            QueryAvailableBalance();
+        }
+
+        public static void QueryAvailableBalance()
+        {
+
+            string paramter = "{'jsonrpc': '2.0', 'method': 'invokescript', 'params': ['14cc82a87f5693c363cd64674024f30a603788134551c1157175657279417661696c61626c6542616c616e63656773031a8b41f8605a281e209249c3bc219522bc7b'],  'id': 1}";
+            var r = PostWebRequest("http://localhost:10332", paramter);
+            Console.WriteLine(ToGB2312(r));
+            var json = batchRpc.MyJson.Parse(ToGB2312(r)).AsDict();
+            var value = json["result"].AsDict()["stack"].GetArrayItem(0).GetDictItem("value");
+            Console.WriteLine("value: " + value);
+            Console.ReadLine();
         }
 
         public static void SendRawTransaction()
@@ -60,7 +73,6 @@ namespace json_rpc
                     Console.WriteLine(paramter);
                     total += amount;
                     var r = PostWebRequest("http://localhost:10332", paramter);
-                    //Console.WriteLine(ToGB2312(r));
                     var json = batchRpc.MyJson.Parse(ToGB2312(r)).AsDict();
                     var txid = json["result"].AsDict()["txid"].ToString();
                     if (txid.Length != 66)

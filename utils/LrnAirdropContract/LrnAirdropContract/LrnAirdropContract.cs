@@ -22,7 +22,9 @@ namespace LrnAirdropContract
         private const Int64 TOTAL_AIRDROP_AMOUNT = 8370456300000000;
 
         private const string AIR_DROP_SUPPLY = "airdropSupply";
+        private const string AIR_DROP_ACCOUNT_NUM = "airdropAccountNum";
         private const string LAST_WITHDRAW_TIME = "lastWithdrawTime";
+        private const string WITHDRAW_SWITCH = "WithdrawSwitch";
         private const int SECONDS_PER_DAY = 86400;
         private const int PERIOD = 730;
 
@@ -33,6 +35,9 @@ namespace LrnAirdropContract
 
         [Appcall("06fa8be9b6609d963e8fc63977b9f8dc5f10895f")]
         static extern object CallLrn(string method, object[] arr);
+
+        [DisplayName("deposited")]
+        public static event Action<byte[], BigInteger> Deposited;
 
         [DisplayName("withdrew")]
         public static event Action<byte[], BigInteger> Withdrew;
@@ -62,15 +67,15 @@ namespace LrnAirdropContract
                 var invocationTransaction = (InvocationTransaction)tx;
                 if (invocationTransaction.Script.Length != 61)
                 {
-                    Runtime.Log("invocationTransaction.Script.Length illegal!");
+                    Runtime.Log("Script Length illegal!");
                     return false;
                 }
 
                 if (invocationTransaction.Script[0] != 0x1c) return false;
 
-                if (invocationTransaction.Script.Range(29,32) != (new byte[] { 0x51, 0xc1, 0x08 }).Concat("withdraw".AsByteArray()).Concat(new byte[]{0x67}).Concat(ExecutionEngine.ExecutingScriptHash))
+                if (invocationTransaction.Script.Range(29, 32) != (new byte[] { 0x51, 0xc1, 0x08 }).Concat("withdraw".AsByteArray()).Concat(new byte[] { 0x67 }).Concat(ExecutionEngine.ExecutingScriptHash))
                 {
-                    Runtime.Log("invocationTransaction.Script illegal!");
+                    Runtime.Log("Script illegal!");
                     return false;
                 }
 
@@ -79,12 +84,9 @@ namespace LrnAirdropContract
 
             if (Runtime.Trigger == TriggerType.Application)
             {
-                if (operation == "deploy")
+                if (operation == "init")
                 {
-                    if (!Runtime.CheckWitness(SuperAdmin)) return false;
-                    Storage.Put(Storage.CurrentContext, AIR_DROP_SUPPLY, 0);
-                    Storage.Put(Storage.CurrentContext, "WithdrawSwitch", 0);
-                    return true;
+                    return Init();
                 }
                 if (operation == "deposit")
                 {
@@ -92,134 +94,134 @@ namespace LrnAirdropContract
                 }
                 if (operation == "withdraw")
                 {
-                    if (args.Length != 1) return false;
-                    byte[] withdrawParameter = (byte[])args[0];
-                    if (withdrawParameter.Length != 28) return false;
-                    byte[] account = withdrawParameter.Range(8, 20);
-                    return Withdraw(account);
+                    return Withdraw(args);
                 }
-                if (operation == "queryAirDropSupply")
+                if (operation == "queryAirDropTotalSupply")
                 {
                     return Storage.Get(Storage.CurrentContext, AIR_DROP_SUPPLY).AsBigInteger();
                 }
                 if (operation == "queryAirDropBalance")
                 {
-                    if (args.Length != 2) return false;
-                    byte[] account = (byte[])args[0];
-
-                    string phase = (string)args[1];
-                    if ("firstPhase" == phase)
-                    {
-                        return Storage.Get(Storage.CurrentContext, FIRST_PHASE_PREFIX.Concat(account)).AsBigInteger();
-                    }
-                    else if ("secondPhase" == phase)
-                    {
-                        return Storage.Get(Storage.CurrentContext, SECOND_PHASE_PREFIX.Concat(account)).AsBigInteger();
-                    }
-                    else if ("thirdPhase" == phase)
-                    {
-                        return Storage.Get(Storage.CurrentContext, THIRD_PHASE_PREFIX.Concat(account)).AsBigInteger();
-                    }
-                    else
-                    {
-                        return 0;
-                    }
+                    QueryAirDropBalance(args);
                 }
                 if (operation == "queryAvailableBalance")
                 {
-                    if (args.Length != 1) return false;
-                    byte[] account = (byte[])args[0];
-                    return CalcTotalAvailableAmount(account);
+                    return GueryAvailableAmount(args);
                 }
-                if (operation == "queryAvailableBalanceByPhase")
+                if (operation == "queryAvailableBalanceWithPhase")
                 {
-                    if (args.Length != 2) return false;
-                    byte[] account = (byte[])args[0];
-                    string phase = (string)args[1];
-                    return CalcAvailableAmount(account, phase.AsByteArray());
+                    return QueryAvailableBalanceWithPhase(args);
                 }
                 if (operation == "setWithdrawSwitch")
                 {
-                    if (!Runtime.CheckWitness(SuperAdmin)) return false;
-                    if (args.Length != 1) return false;
-                    if((string)args[0] == "on")
-                    {
-                        Storage.Put(Storage.CurrentContext, "WithdrawSwitch", 1);
-                    } else
-                    {
-                        Storage.Put(Storage.CurrentContext, "WithdrawSwitch", 0);
-                    }
-                    return true;
+                    return SetWithdrawSwitch(args);
                 }
-                if (operation == "getWithdrawSwitch")
+                if (operation == "queryWithdrawSwitch")
                 {
-                    return Storage.Get(Storage.CurrentContext, "WithdrawSwitch").AsBigInteger();
+                    return Storage.Get(Storage.CurrentContext, WITHDRAW_SWITCH).AsBigInteger();
                 }
-                if (operation == "getLastWithdrawTime")
+                if (operation == "queryLastWithdrawTime")
                 {
-                    if (args.Length != 1) return false;
-                    byte[] account = (byte[])args[0];
-                    if (account.Length != 20) return false;
-                    return Storage.Get(Storage.CurrentContext, account.Concat(LAST_WITHDRAW_TIME.AsByteArray())).AsBigInteger();
+                    return QueryLastWithdrawTime(args);
+                }
+                if (operation == "queryAirdropAccountNum")
+                {
+                    return Storage.Get(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM).AsBigInteger();
                 }
             }
             return false;
         }
 
         /// <summary>
-        ///   deposit the amount to an account.
+        ///   Init.
+        /// </summary>
+        /// <returns>
+        ///   Set Successful?
+        /// </returns>
+        public static bool Init()
+        {
+            if (!Runtime.CheckWitness(SuperAdmin)) return false;
+
+            Storage.Put(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM, 0);
+            Storage.Put(Storage.CurrentContext, AIR_DROP_SUPPLY, 0);
+            Storage.Put(Storage.CurrentContext, WITHDRAW_SWITCH, 0);
+            return true;
+        }
+        /// <summary>
+        ///   Deposit the amount to the account.
         /// </summary>
         /// <param name="args">
-        ///   The contract invoker.
+        ///   The contract input parameters: account, depositAmount, phase.
         /// </param>
         /// <returns>
-        ///   Transaction Successful?
+        ///   Deposit Successful?
         /// </returns>
         public static bool Deposit(object[] args)
         {
             if (!Runtime.CheckWitness(SuperAdmin)) return false;
 
-            if (args.Length != 3) return false;
+            if (args.Length != 3) throw new Exception();
 
             byte[] account = (byte[])args[0];
-            if (account.Length != 20) return false;
+            if (account.Length != 20) throw new Exception();
 
             BigInteger depositAmount = (BigInteger)args[1];
-            if (depositAmount <= 0 || depositAmount > TOTAL_AMOUNT_PER_PHASE) return false;
+            if (depositAmount <= 0 || depositAmount > TOTAL_AMOUNT_PER_PHASE) throw new Exception();
+
             BigInteger supply = Storage.Get(Storage.CurrentContext, AIR_DROP_SUPPLY).AsBigInteger();
-            if ((supply + depositAmount) > TOTAL_AIRDROP_AMOUNT) return false;
+
+            BigInteger originAmount = 0;
 
             string phase = (string)args[2];
-            if("firstPhase" == phase)
+            if ("firstPhase" == phase)
             {
-                Storage.Put(Storage.CurrentContext, FIRST_PHASE_PREFIX.Concat(account), depositAmount);                
-            } else if("secondPhase" == phase)
-            {
-                Storage.Put(Storage.CurrentContext, SECOND_PHASE_PREFIX.Concat(account), depositAmount);
-            } else if ("thirdPhase" == phase)
-            {
-                Storage.Put(Storage.CurrentContext, THIRD_PHASE_PREFIX.Concat(account), depositAmount);
-            } else
-            {
-                return false;
+                originAmount = Storage.Get(Storage.CurrentContext, FIRST_PHASE_PREFIX.Concat(account)).AsBigInteger();
+                Storage.Put(Storage.CurrentContext, FIRST_PHASE_PREFIX.Concat(account), depositAmount);
             }
-            Storage.Put(Storage.CurrentContext, AIR_DROP_SUPPLY, supply + depositAmount);
+            else if ("secondPhase" == phase)
+            {
+                originAmount = Storage.Get(Storage.CurrentContext, SECOND_PHASE_PREFIX.Concat(account)).AsBigInteger();
+                Storage.Put(Storage.CurrentContext, SECOND_PHASE_PREFIX.Concat(account), depositAmount);
+            }
+            else if ("thirdPhase" == phase)
+            {
+                originAmount = Storage.Get(Storage.CurrentContext, THIRD_PHASE_PREFIX.Concat(account)).AsBigInteger();
+                Storage.Put(Storage.CurrentContext, THIRD_PHASE_PREFIX.Concat(account), depositAmount);
+            }
+            else
+            {
+                throw new Exception();
+            }
+            if ((supply - originAmount + depositAmount) > TOTAL_AIRDROP_AMOUNT || (supply - originAmount + depositAmount) < 0) throw new Exception();
+            Storage.Put(Storage.CurrentContext, AIR_DROP_SUPPLY, supply - originAmount + depositAmount);
+            if (originAmount == 0)
+            {
+                BigInteger originAccountNum = Storage.Get(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM).AsBigInteger();
+                Storage.Put(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM, originAccountNum + 1);
+            }
+
+            Deposited(account, depositAmount);
             return true;
         }
 
         /// <summary>
         ///   Withdraw the available amount to the account.
         /// </summary>
-        /// <param name="account">
-        ///   The account to withdraw.
+        /// <param name="args">
+        ///   The contract input parameters: account.
         /// </param>
         /// <returns>
-        ///   Transaction Successful?
+        ///   Withdraw Successful?
         /// </returns>
-        public static bool Withdraw(byte[] account)
+        public static bool Withdraw(object[] args)
         {
-            BigInteger withdrawSwitch = Storage.Get(Storage.CurrentContext, "WithdrawSwitch").AsBigInteger();
-            if (withdrawSwitch == 0) return false;
+            if (args.Length != 1) throw new Exception();
+            byte[] withdrawParameter = (byte[])args[0];
+            if (withdrawParameter.Length != 28) throw new Exception();
+            byte[] account = withdrawParameter.Range(8, 20);
+
+            BigInteger withdrawSwitch = Storage.Get(Storage.CurrentContext, WITHDRAW_SWITCH).AsBigInteger();
+            if (withdrawSwitch == 0) throw new Exception();
 
             BigInteger firstAvailbableAmount = CalcAvailableAmount(account, FIRST_PHASE_PREFIX);
             BigInteger secondAvailbableAmount = CalcAvailableAmount(account, SECOND_PHASE_PREFIX);
@@ -238,7 +240,104 @@ namespace LrnAirdropContract
                 Storage.Put(Storage.CurrentContext, account.Concat(LAST_WITHDRAW_TIME.AsByteArray()), now);
                 Withdrew(account, withdrawAmount);
             }
+            else
+            {
+                throw new Exception();
+            }
             return true;
+        }
+
+
+        /// <summary>
+        ///   Query the available amount to the account for the specific phase.
+        /// </summary>
+        /// <param name="args">
+        ///   The contract input parameters: account, phase.
+        /// </param>
+        /// <returns>
+        ///   The available amount to the account for the specific phase.
+        /// </returns>
+        public static BigInteger QueryAvailableBalanceWithPhase(object[] args)
+        {
+            if (args.Length != 2) return 0;
+            byte[] account = (byte[])args[0];
+            string phase = (string)args[1];
+            return CalcAvailableAmount(account, phase.AsByteArray());
+        }
+
+
+        /// <summary>
+        ///   Set the withdraw switch.
+        /// </summary>
+        /// <param name="args">
+        ///   The contract input parameters: switch.
+        /// </param>
+        /// <returns>
+        ///   Set Successful?
+        /// </returns>
+        public static bool SetWithdrawSwitch(object[] args)
+        {
+            if (!Runtime.CheckWitness(SuperAdmin)) return false;
+            if (args.Length != 1) return false;
+            if ((string)args[0] == "on")
+            {
+                Storage.Put(Storage.CurrentContext, WITHDRAW_SWITCH, 1);
+            }
+            else
+            {
+                Storage.Put(Storage.CurrentContext, WITHDRAW_SWITCH, 0);
+            }
+            return true;
+        }
+
+
+        /// <summary>
+        ///   Query the last withdraw time for the specific account.
+        /// </summary>
+        /// <param name="args">
+        ///   The contract input parameters: account.
+        /// </param>
+        /// <returns>
+        ///   The last withdraw time.
+        /// </returns>
+        public static BigInteger QueryLastWithdrawTime(object[] args)
+        {
+            if (args.Length != 1) return 0;
+            byte[] account = (byte[])args[0];
+            if (account.Length != 20) return 0;
+            return Storage.Get(Storage.CurrentContext, account.Concat(LAST_WITHDRAW_TIME.AsByteArray())).AsBigInteger();
+        }
+        /// <summary>
+        ///   Query the total amount of the account for specific phase.
+        /// </summary>
+        /// <param name="args">
+        ///   The contract input parameters: account, phase.
+        /// </param>
+        /// <returns>
+        ///   The total amount of the account for specific phase.
+        /// </returns>
+        public static BigInteger QueryAirDropBalance(object[] args)
+        {
+            if (args.Length != 2) return 0;
+            byte[] account = (byte[])args[0];
+
+            string phase = (string)args[1];
+            if ("firstPhase" == phase)
+            {
+                return Storage.Get(Storage.CurrentContext, FIRST_PHASE_PREFIX.Concat(account)).AsBigInteger();
+            }
+            else if ("secondPhase" == phase)
+            {
+                return Storage.Get(Storage.CurrentContext, SECOND_PHASE_PREFIX.Concat(account)).AsBigInteger();
+            }
+            else if ("thirdPhase" == phase)
+            {
+                return Storage.Get(Storage.CurrentContext, THIRD_PHASE_PREFIX.Concat(account)).AsBigInteger();
+            }
+            else
+            {
+                return 0;
+            }
         }
 
         /// <summary>
@@ -251,38 +350,21 @@ namespace LrnAirdropContract
         ///  The phase of the airdrop.
         /// </param>
         /// <returns>
-        ///  available amount to withdraw per phase
+        ///  Available amount to withdraw for the phase.
         /// </returns>
         public static BigInteger CalcAvailableAmount(byte[] account, byte[] phase)
         {
             if (account.Length != 20) return 0;
             BigInteger amount = Storage.Get(Storage.CurrentContext, phase.Concat(account)).AsBigInteger();
             if (amount < 1) return 0;
-            BigInteger now = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp;
-            if (now < FIRST_AIRDROP_START_TIME) return 0;
-            BigInteger lastWithdrawTime = Storage.Get(Storage.CurrentContext, account.Concat(LAST_WITHDRAW_TIME.AsByteArray())).AsBigInteger();
             BigInteger holdDays = 0;
             BigInteger totalAvailableAmount = 0;
-            BigInteger startTime = 0;
-            if (phase == FIRST_PHASE_PREFIX)
-            {
-                startTime = FIRST_AIRDROP_START_TIME;
-            }
-            if (phase == SECOND_PHASE_PREFIX)
-            {
-                startTime = SECOND_AIRDROP_START_TIME;
-            }
-            if (phase == THIRD_PHASE_PREFIX)
-            {
-                startTime = THIRD_AIRDROP_START_TIME;
-            }
+            BigInteger startTime = CalcStartTime(account, phase);
+            BigInteger endTime = CalcEndTime(account, phase);
 
-            if (lastWithdrawTime > FIRST_AIRDROP_START_TIME)
+            if (endTime > startTime)
             {
-                holdDays = (now - lastWithdrawTime) / SECONDS_PER_DAY;
-            } else
-            {
-                holdDays = (now - startTime) / SECONDS_PER_DAY;
+                holdDays = (endTime - startTime) / SECONDS_PER_DAY;
             }
 
             BigInteger availbableAmount = amount * holdDays / PERIOD;
@@ -296,15 +378,106 @@ namespace LrnAirdropContract
         ///  the account to withdraw
         /// </param>
         /// <returns>
-        ///  available amount to withdraw
+        ///  Available amount to withdraw of the account for all phases.
         /// </returns>
-        public static BigInteger CalcTotalAvailableAmount(byte[] account)
+        public static BigInteger GueryAvailableAmount(object[] args)
         {
+            if (args.Length != 1) return 0;
+
+            byte[] account = (byte[])args[0];
+            if (account.Length != 20) return 0;
+
             BigInteger firstAvailbableAmount = CalcAvailableAmount(account, FIRST_PHASE_PREFIX);
             BigInteger secondAvailbableAmount = CalcAvailableAmount(account, SECOND_PHASE_PREFIX);
             BigInteger thirdAvailbableAmount = CalcAvailableAmount(account, THIRD_PHASE_PREFIX);
             BigInteger availableAmount = firstAvailbableAmount + secondAvailbableAmount + thirdAvailbableAmount;
             return availableAmount;
+        }
+
+        /// <summary>
+        ///  Calculate the start time for withdraw.
+        /// </summary>
+        /// <param name="account">
+        ///  the account to withdraw
+        /// </param>
+        /// <param name="phase">
+        ///  The phase of the airdrop.
+        /// </param>
+        /// <returns>
+        /// The start time for withdraw.
+        /// </returns>
+        public static BigInteger CalcStartTime(byte[] account, byte[] phase)
+        {
+            BigInteger startTime = Storage.Get(Storage.CurrentContext, account.Concat(LAST_WITHDRAW_TIME.AsByteArray())).AsBigInteger();
+            if (phase == FIRST_PHASE_PREFIX)
+            {
+                if (startTime <= FIRST_AIRDROP_START_TIME)
+                {
+                    startTime = FIRST_AIRDROP_START_TIME;
+                }
+            }
+            else if (phase == SECOND_PHASE_PREFIX)
+            {
+                if (startTime <= SECOND_AIRDROP_START_TIME)
+                {
+                    startTime = SECOND_AIRDROP_START_TIME;
+                }
+            }
+            else if (phase == THIRD_PHASE_PREFIX)
+            {
+                if (startTime <= THIRD_AIRDROP_START_TIME)
+                {
+                    startTime = THIRD_AIRDROP_START_TIME;
+                }
+            }
+            else
+            {
+                throw new Exception();
+            }
+            return startTime;
+        }
+
+        /// <summary>
+        ///  Calculate the end time for withdraw.
+        /// </summary>
+        /// <param name="account">
+        ///  the account to withdraw
+        /// </param>
+        /// <param name="phase">
+        ///  The phase of the airdrop.
+        /// </param>
+        /// <returns>
+        /// The end time for withdraw.
+        /// </returns>
+        public static BigInteger CalcEndTime(byte[] account, byte[] phase)
+        {
+            BigInteger endTime = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp;
+            if (phase == FIRST_PHASE_PREFIX)
+            {
+                if (endTime > (FIRST_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY))
+                {
+                    endTime = FIRST_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY;
+                }
+            }
+            else if (phase == SECOND_PHASE_PREFIX)
+            {
+                if (endTime > (SECOND_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY))
+                {
+                    endTime = SECOND_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY;
+                }
+            }
+            else if (phase == THIRD_PHASE_PREFIX)
+            {
+                if (endTime > (THIRD_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY))
+                {
+                    endTime = THIRD_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY;
+                }
+            }
+            else
+            {
+                throw new Exception();
+            }
+            return endTime;
         }
     }
 }
