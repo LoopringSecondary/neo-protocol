@@ -84,10 +84,6 @@ namespace LrnAirdropContract
 
             if (Runtime.Trigger == TriggerType.Application)
             {
-                if (operation == "init")
-                {
-                    return Init();
-                }
                 if (operation == "deposit")
                 {
                     return Deposit(args);
@@ -102,7 +98,7 @@ namespace LrnAirdropContract
                 }
                 if (operation == "queryAirDropBalance")
                 {
-                    QueryAirDropBalance(args);
+                    return QueryAirDropBalance(args);
                 }
                 if (operation == "queryAvailableBalance")
                 {
@@ -128,25 +124,14 @@ namespace LrnAirdropContract
                 {
                     return Storage.Get(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM).AsBigInteger();
                 }
+                if (operation == "queryAirdropAccount")
+                {
+                    return QueryAirdropAccount(args); 
+                }
             }
             return false;
         }
 
-        /// <summary>
-        ///   Init.
-        /// </summary>
-        /// <returns>
-        ///   Set Successful?
-        /// </returns>
-        public static bool Init()
-        {
-            if (!Runtime.CheckWitness(SuperAdmin)) return false;
-
-            Storage.Put(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM, 0);
-            Storage.Put(Storage.CurrentContext, AIR_DROP_SUPPLY, 0);
-            Storage.Put(Storage.CurrentContext, WITHDRAW_SWITCH, 0);
-            return true;
-        }
         /// <summary>
         ///   Deposit the amount to the account.
         /// </summary>
@@ -169,9 +154,14 @@ namespace LrnAirdropContract
             if (depositAmount <= 0 || depositAmount > TOTAL_AMOUNT_PER_PHASE) throw new Exception();
 
             BigInteger supply = Storage.Get(Storage.CurrentContext, AIR_DROP_SUPPLY).AsBigInteger();
-
             BigInteger originAmount = 0;
 
+            if (IsNewAccount(account))
+            {
+                BigInteger sequenceNumber = Storage.Get(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM).AsBigInteger() + 1;
+                Storage.Put(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM + sequenceNumber, account);
+                Storage.Put(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM, sequenceNumber);
+            }
             string phase = (string)args[2];
             if ("firstPhase" == phase)
             {
@@ -194,12 +184,6 @@ namespace LrnAirdropContract
             }
             if ((supply - originAmount + depositAmount) > TOTAL_AIRDROP_AMOUNT || (supply - originAmount + depositAmount) < 0) throw new Exception();
             Storage.Put(Storage.CurrentContext, AIR_DROP_SUPPLY, supply - originAmount + depositAmount);
-            if (originAmount == 0)
-            {
-                BigInteger originAccountNum = Storage.Get(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM).AsBigInteger();
-                Storage.Put(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM, originAccountNum + 1);
-            }
-
             Deposited(account, depositAmount);
             return true;
         }
@@ -242,7 +226,7 @@ namespace LrnAirdropContract
             }
             else
             {
-                throw new Exception();
+                return false;
             }
             return true;
         }
@@ -307,6 +291,24 @@ namespace LrnAirdropContract
             if (account.Length != 20) return 0;
             return Storage.Get(Storage.CurrentContext, account.Concat(LAST_WITHDRAW_TIME.AsByteArray())).AsBigInteger();
         }
+
+        /// <summary>
+        ///   Query the account by sequence number.
+        /// </summary>
+        /// <param name="args">
+        ///   The contract input parameters: sequence number.
+        /// </param>
+        /// <returns>
+        ///  Account.
+        /// </returns>
+        public static byte[] QueryAirdropAccount(object[] args)
+        {
+            if (args.Length != 1) return new byte[] {0};
+            BigInteger sequenceNumber = (BigInteger)args[0];
+            if(sequenceNumber < 0 || sequenceNumber > 100000000) return new byte[] { 0 };
+            return Storage.Get(Storage.CurrentContext, AIR_DROP_ACCOUNT_NUM + sequenceNumber);
+        }
+
         /// <summary>
         ///   Query the total amount of the account for specific phase.
         /// </summary>
@@ -478,6 +480,27 @@ namespace LrnAirdropContract
                 throw new Exception();
             }
             return endTime;
+        }
+
+        /// <summary>
+        ///  Judge an account has been deposited before.
+        /// </summary>
+        /// <param name="account">
+        ///  the account to deposit
+        /// </param>
+        /// <returns>
+        ///  false-has been deposited before, true-hasn't been deposited before.
+        /// </returns>
+        public static bool IsNewAccount(byte[] account)
+        {
+            BigInteger originFirstAmount = Storage.Get(Storage.CurrentContext, FIRST_PHASE_PREFIX.Concat(account)).AsBigInteger();
+            BigInteger originSecondAmount = Storage.Get(Storage.CurrentContext, SECOND_PHASE_PREFIX.Concat(account)).AsBigInteger();
+            BigInteger originThirdAmount = Storage.Get(Storage.CurrentContext, THIRD_PHASE_PREFIX.Concat(account)).AsBigInteger();
+            if (originFirstAmount == 0 && originSecondAmount == 0 && originThirdAmount == 0)
+            {
+                return true;
+            }
+            return false;
         }
     }
 }
