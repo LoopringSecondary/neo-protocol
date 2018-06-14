@@ -27,6 +27,7 @@ namespace LrnAirdropContract
         private const string WITHDRAW_SWITCH = "WithdrawSwitch";
         private const int SECONDS_PER_DAY = 86400;
         private const int PERIOD = 730;
+        private const int COMPENSATE_TIME = 86399;
 
         public static readonly byte[] FIRST_PHASE_PREFIX = "firstPhase".AsByteArray();
         public static readonly byte[] SECOND_PHASE_PREFIX = "secondPhase".AsByteArray();
@@ -458,21 +459,21 @@ namespace LrnAirdropContract
             {
                 if (endTime > (FIRST_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY))
                 {
-                    endTime = FIRST_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY;
+                    endTime = FIRST_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY + COMPENSATE_TIME;
                 }
             }
             else if (phase == SECOND_PHASE_PREFIX)
             {
                 if (endTime > (SECOND_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY))
                 {
-                    endTime = SECOND_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY;
+                    endTime = SECOND_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY + COMPENSATE_TIME;
                 }
             }
             else if (phase == THIRD_PHASE_PREFIX)
             {
                 if (endTime > (THIRD_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY))
                 {
-                    endTime = THIRD_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY;
+                    endTime = THIRD_AIRDROP_START_TIME + PERIOD * SECONDS_PER_DAY + COMPENSATE_TIME;
                 }
             }
             else
