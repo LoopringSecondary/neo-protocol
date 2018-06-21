@@ -15,15 +15,13 @@ namespace LoopringProtocol
 
         private static readonly byte[] CUTOFF = "cutoff-".AsByteArray();
 
-        private static readonly byte[] CANCELLED = "cancelled-".AsByteArray();
-
         private static readonly byte[] ORDER_BASIC = "orderBasic-".AsByteArray();
 
         private static readonly byte[] ORDER_STATUS = "orderStatus-".AsByteArray();
 
         private static readonly byte[] ORDER_TIME = "orderTime-".AsByteArray();
 
-        private static readonly byte[] MIN_AMOUNT = "minAmount-".AsByteArray();
+        private static readonly byte[] MIN_ORDER_AMOUNT = "minOrderAmount-".AsByteArray();
 
         private static readonly byte[] AMOUNT_TO_SELL = "amountS-".AsByteArray();
 
@@ -31,13 +29,15 @@ namespace LoopringProtocol
 
         private static readonly byte[] SOLD_AMOUNT = "soldAmount-".AsByteArray();
 
-        private static readonly byte[] BOUGHT_AMOUNT = "boughtAmout-".AsByteArray();
+        private static readonly byte[] BOUGHT_AMOUNT = "boughtAmount-".AsByteArray();
 
         private static readonly byte[] LRN_FEE = "lrnFee-".AsByteArray();
 
         private static readonly byte[] KEY_LRN_ASSET_ID = "lrnAssetId".AsByteArray();
 
         private static readonly byte[] METHOD_SUBMIT_RING = "submitRing".AsByteArray();
+
+        private static readonly byte[] EQUIVALENT_RANGE = "equivalentRange-".AsByteArray();
 
         //according to the fee model of NEO, the number of the ring  needn't set too much
         private const int MAX_RING_ORDER_NUM = 3;
@@ -97,14 +97,7 @@ namespace LoopringProtocol
             if (Runtime.Trigger == TriggerType.Verification)
             {
                 if (Runtime.CheckWitness(SuperAdmin)) return true;
-
-                Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
-
-                var type = tx.Type;
-                if (type != INVOCATION_TRANSACTION_TYPE) return false;
-
-                var invocationTransaction = (InvocationTransaction)tx;
-                if (!CheckItx(invocationTransaction)) return false;
+                if (!CheckTx()) return false;
 
                 return true;
             }
@@ -131,9 +124,14 @@ namespace LoopringProtocol
                     return SubmitRing(args);
                 }
 
-                if (operation == "setMinAmountForAsset")
+                if (operation == "setMinOrderAmount")
                 {
-                    return SetMinAmountForAsset(args);
+                    return SetMinOrderAmount(args);
+                }
+
+                if (operation == "setEquivalentRange")
+                {
+                    return SetMinOrderAmount(args);
                 }
 
                 if (operation == "setLrnAssetId")
@@ -150,8 +148,14 @@ namespace LoopringProtocol
             return false;
         }
 
-        private static bool CheckItx(InvocationTransaction itx)
+        private static bool CheckTx()
         {
+            Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
+
+            var type = tx.Type;
+            if (type != INVOCATION_TRANSACTION_TYPE) return false;
+
+            var itx = (InvocationTransaction)tx;
             //2 or 3 nodes in a ring now
             if (itx.Script.Length != 100 || itx.Script.Length != 132)
             {
@@ -165,7 +169,7 @@ namespace LoopringProtocol
 
             if(itx.Script[1] == 2)
             {
-                if (itx.Script.Range(65, 34) != (new byte[] { 0x51, 0xc1, 0x08 }).Concat(METHOD_SUBMIT_RING).Concat(new byte[] { 0x67 }).Concat(ExecutionEngine.ExecutingScriptHash))
+                if (itx.Script.Range(65, 34) != (new byte[] { 0x51, 0xc1, 0x0a }).Concat(METHOD_SUBMIT_RING).Concat(new byte[] { 0x67 }).Concat(ExecutionEngine.ExecutingScriptHash))
                 {
                     Runtime.Log("Script illegal!");
                     return false;
@@ -185,7 +189,7 @@ namespace LoopringProtocol
         ///  Create an order.
         /// </summary>
         /// <param name="args">
-        ///  include elements of an order.
+        ///  include the elements of the order.
         /// </param>
         /// <returns>
         ///  orderHash
@@ -212,14 +216,14 @@ namespace LoopringProtocol
         ///  Construct a TradeOrder
         /// </summary>
         /// <param name="args">
-        ///  elements of an order.
+        ///  elements of the order.
         /// </param>
         /// <returns>
-        ///  TradeOrder
+        ///  order
         /// </returns>
         private static TradeOrder ConstructTradeOrder(object[] args)
         {
-            BigInteger now = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp;
+            BigInteger timestamp = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp;
             return new TradeOrder
             {
                 owner = (byte[])args[0],
@@ -231,17 +235,17 @@ namespace LoopringProtocol
                 amountB = (BigInteger)args[5],
                 lrnFee = (BigInteger)args[6],
 
-                orderTime = now,
+                orderTime = timestamp,
 
                 status = Trading
             };
         }
 
         /// <summary>
-        ///  Check the order parameters while creating an order
+        ///  Check the order parameters before creating an order
         /// </summary>
         /// <param name="args">
-        /// elements of an order.
+        ///  elements of the order.
         /// </param>
         /// <returns>
         ///  check result
@@ -261,8 +265,8 @@ namespace LoopringProtocol
             BigInteger lrnFee = (BigInteger)args[6];
 
             //限制灰尘小单
-            BigInteger minAmountS = Storage.Get(Storage.CurrentContext, MIN_AMOUNT.Concat(tokenS)).AsBigInteger();
-            BigInteger minAmountB = Storage.Get(Storage.CurrentContext, MIN_AMOUNT.Concat(tokenB)).AsBigInteger();
+            BigInteger minAmountS = Storage.Get(Storage.CurrentContext, MIN_ORDER_AMOUNT.Concat(tokenS)).AsBigInteger();
+            BigInteger minAmountB = Storage.Get(Storage.CurrentContext, MIN_ORDER_AMOUNT.Concat(tokenB)).AsBigInteger();
             if (amountS <= minAmountS || amountB <= minAmountB || lrnFee < 0) return false;
             return true;
         }
@@ -306,12 +310,9 @@ namespace LoopringProtocol
             if (!Runtime.CheckWitness(owner)) return false;
             if (orderHash.Length != LENGTH_OF_ORDERHASH) return false;
             var status = Storage.Get(Storage.CurrentContext, ORDER_STATUS.Concat(orderHash));
-            if (status == Trading || status == Invalid)
-            {
+            if (status == Trading || status == Invalid) {
                 Storage.Put(Storage.CurrentContext, ORDER_STATUS.Concat(orderHash), Invalid);
-            }
-            else
-            {
+            } else {
                 return false;
             }
             OrderCancelled(owner, orderHash);
@@ -344,83 +345,27 @@ namespace LoopringProtocol
         }
 
         /// <summary>
-        ///  Check the status of an order
+        ///  Check the status of the order
         /// </summary>
         /// <param name="args">
         /// owner/cutoffTime
         /// </param>
         /// <returns>
-        /// is the order valid to trade
+        /// If the order is valid.
         /// </returns>
         private static bool IsOrderValid(byte[] orderHash)
         {
             byte[] basicInfo = Storage.Get(Storage.CurrentContext, ORDER_BASIC.Concat(orderHash));
-            if (basicInfo.Length != 4 * LENGTH_OF_SCRIPTHASH) return false;
             byte[] owner = basicInfo.Range(0, LENGTH_OF_SCRIPTHASH);
             byte[] orderStatus = Storage.Get(Storage.CurrentContext, ORDER_STATUS.Concat(orderHash));
 
             if (orderStatus == AllFilled || orderStatus == Invalid) return false;
 
             //if the order expired
-            BigInteger now = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp;
             BigInteger orderTime = Storage.Get(Storage.CurrentContext, ORDER_TIME.Concat(orderHash)).AsBigInteger();
             BigInteger cutoffTime = Storage.Get(Storage.CurrentContext, CUTOFF.Concat(owner)).AsBigInteger();
             if (cutoffTime >= orderTime) return false;
 
-            return true;
-        }
-
-        /// <summary>
-        ///  Check if the allowance is enough 
-        /// </summary>
-        /// <param name="args">
-        /// assetId/owner/amount
-        /// </param>
-        /// <returns>
-        /// if the allowance is enough
-        /// </returns>
-        private static bool CheckIsApproved(byte[] assetId, byte[] owner, BigInteger amount)
-        {
-            if (assetId.Length != LENGTH_OF_SCRIPTHASH || owner.Length != LENGTH_OF_SCRIPTHASH || amount <= 0)
-            {
-                return false;
-            }
-
-            var args = new object[] { owner, ExecutionEngine.ExecutingScriptHash };
-            var contract = (NEP5Contract)assetId.ToDelegate();
-            BigInteger result = (BigInteger)contract("allowance", args);
-            if (result < amount)
-            {
-                Runtime.Log("allowance is not enough!");
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
-        ///  Check if the balance is enough 
-        /// </summary>
-        /// <param name="args">
-        /// assetId/owner/amount
-        /// </param>
-        /// <returns>
-        /// if the balance is enough
-        /// </returns>
-        private static bool CheckIsBalanceEnough(byte[] assetId, byte[] owner, BigInteger amount)
-        {
-            if (assetId.Length != LENGTH_OF_SCRIPTHASH || owner.Length != LENGTH_OF_SCRIPTHASH || amount <= 0)
-            {
-                return false;
-            }
-
-            var args = new object[] { owner };
-            var contract = (NEP5Contract)assetId.ToDelegate();
-            BigInteger result = (BigInteger)contract("balanceOf", args);
-            if (result < amount)
-            {
-                Runtime.Log("balance is not enough!");
-                return false;
-            }
             return true;
         }
 
@@ -451,15 +396,9 @@ namespace LoopringProtocol
             byte[][] operateArray = ParseRing((int)orderNum, orderHashes);
             if (operateArray.Length == 0) return false;
 
-            //if (CheckOperateArray((int)orderNum, operateArray))
-            //{
-            //    Storage.Put(Storage.CurrentContext, "CheckOperateArray", 1);
-            //} else
-            //{
-            //    Storage.Put(Storage.CurrentContext, "CheckOperateArray", 2);
-            //}
+            if (!CheckOperateArray((int)orderNum, operateArray)) return false;
 
-            //ExcuteOperateArray(orderNum, operateArray);
+            ExcuteOperateArray((int)orderNum, operateArray);
             UpdateOrders((int)orderNum, orderHashes, operateArray);
             RingMined(parameter);
             return true;
@@ -482,10 +421,8 @@ namespace LoopringProtocol
                 byte[] owner = operateArray[i].Range(20, LENGTH_OF_SCRIPTHASH);
                 byte[] to = operateArray[i].Range(40, LENGTH_OF_SCRIPTHASH);
                 BigInteger amount = operateArray[i].Range(60, operateArray[i].Length - 60).AsBigInteger();
-                if(!TransferToken(assetId, owner, to, amount))
-                {
-                    return false;
-                }
+
+                if (!TransferToken(assetId, owner, to, amount)) return false;
             }
             return true;
         }
@@ -505,18 +442,17 @@ namespace LoopringProtocol
             for (int i = 0; i < orderNum; i++)
             {
                 byte[] assetId = operateArray[i].Range(0, LENGTH_OF_SCRIPTHASH);
-                BigInteger minAmount = Storage.Get(Storage.CurrentContext, MIN_AMOUNT.Concat(assetId)).AsBigInteger();
+                BigInteger equivalentRange = Storage.Get(Storage.CurrentContext, EQUIVALENT_RANGE.Concat(assetId)).AsBigInteger();
                 BigInteger amountS = operateArray[i].Range(60, operateArray[i].Length - 60).AsBigInteger();
-                BigInteger soldAmount = GetRemainderS(orderHashes[i]);
-                BigInteger boughtAmount = GetRemainderB(orderHashes[i]);
+                BigInteger soldAmount = GetSoldAmount(orderHashes[i]);
                 BigInteger amountPlanToS = Storage.Get(Storage.CurrentContext, AMOUNT_TO_SELL.Concat(orderHashes[i])).AsBigInteger();
-                if (amountPlanToS - soldAmount - amountS < 500)
-                {
+                if (amountPlanToS - soldAmount - amountS <= equivalentRange) {
                     Storage.Put(Storage.CurrentContext, ORDER_STATUS.Concat(orderHashes[i]), AllFilled);
                 } else {
+                    BigInteger boughtAmount = GetBoughtAmount(orderHashes[i]);
                     Storage.Put(Storage.CurrentContext, SOLD_AMOUNT.Concat(orderHashes[i]), soldAmount + amountS);
                     BigInteger amountB = operateArray[i].Range(60, operateArray[i-1].Length - 60).AsBigInteger();
-                    Storage.Put(Storage.CurrentContext, BOUGHT_AMOUNT.Concat(orderHashes[i-1]), boughtAmount + amountB);
+                    Storage.Put(Storage.CurrentContext, BOUGHT_AMOUNT.Concat(orderHashes[i]), boughtAmount + amountB);
                 }
             }
             return true;
@@ -538,9 +474,17 @@ namespace LoopringProtocol
                 byte[] assetId = operateArray[i].Range(0, LENGTH_OF_SCRIPTHASH);
                 byte[] owner = operateArray[i].Range(20, LENGTH_OF_SCRIPTHASH);
                 BigInteger amount = operateArray[i].Range(60, operateArray[i].Length - 60).AsBigInteger();
-                if (CheckIsApproved(assetId, owner, amount)
-                    && CheckIsBalanceEnough(assetId, owner, amount))
-                    return false;
+
+                var allowanceArgs = new object[] { owner, ExecutionEngine.ExecutingScriptHash };
+                var allowanceContract = (NEP5Contract)assetId.ToDelegate();
+                BigInteger allowanceResult = (BigInteger)allowanceContract("allowance", allowanceArgs);
+
+                var balanceArgs = new object[] { owner };
+                var balanceContract = (NEP5Contract)assetId.ToDelegate();
+                BigInteger balanceResult = (BigInteger)balanceContract("balanceOf", balanceArgs);
+
+                if (allowanceResult < amount || balanceResult < amount) return false;
+
             }
             return true;
         }
@@ -575,7 +519,7 @@ namespace LoopringProtocol
         /// <returns>
         /// set successful?
         /// </returns>
-        private static bool SetMinAmountForAsset(object[] args)
+        private static bool SetMinOrderAmount(object[] args)
         {
             if (!Runtime.CheckWitness(SuperAdmin)) return false;
 
@@ -584,8 +528,44 @@ namespace LoopringProtocol
             byte[] assetId = (byte[])args[0];
             BigInteger minAmount = (BigInteger)args[1];
             if (assetId.Length != LENGTH_OF_SCRIPTHASH || minAmount <= 0) return false;
-            Storage.Put(Storage.CurrentContext, MIN_AMOUNT.Concat(assetId), minAmount);
+            Storage.Put(Storage.CurrentContext, MIN_ORDER_AMOUNT.Concat(assetId), minAmount);
             return true;
+        }
+
+        /// <summary>
+        ///  Set the equivalent range of the specific asset
+        /// </summary>
+        /// <param name="args">
+        /// assetId/minAmount
+        /// </param>
+        /// <returns>
+        /// set successful?
+        /// </returns>
+        private static bool SetEquivalentRange(object[] args)
+        {
+            if (!Runtime.CheckWitness(SuperAdmin)) return false;
+
+            if (args.Length != 2) return false;
+
+            byte[] assetId = (byte[])args[0];
+            BigInteger equivalentRange = (BigInteger)args[1];
+            if (assetId.Length != LENGTH_OF_SCRIPTHASH || equivalentRange <= 0) return false;
+            Storage.Put(Storage.CurrentContext, EQUIVALENT_RANGE.Concat(assetId), equivalentRange);
+            return true;
+        }
+
+        /// <summary>
+        ///  Get the equivalent range of the asset
+        /// </summary>
+        /// <param name="args">
+        /// assetId
+        /// </param>
+        /// <returns>
+        /// equivalent range of the  asset
+        /// </returns>
+        private static BigInteger GetEquivalentRange(byte[] assetId)
+        {
+            return Storage.Get(Storage.CurrentContext, EQUIVALENT_RANGE.Concat(assetId)).AsBigInteger();
         }
 
         /// <summary>
@@ -605,16 +585,16 @@ namespace LoopringProtocol
             BigInteger headRemainderSAmount = GetRemainderS(orderHashes[0]);
             BigInteger headRemainderBAmount = GetRemainderB(orderHashes[0]);
             BigInteger currentSamount = headRemainderSAmount;
-            byte[] headBasisInfo = Storage.Get(Storage.CurrentContext, ORDER_BASIC.Concat(orderHashes[0]));
-            byte[] headOwner = GetOwner(headBasisInfo);
+            byte[] headBasicInfo = Storage.Get(Storage.CurrentContext, ORDER_BASIC.Concat(orderHashes[0]));
+            byte[] headOwner = GetOwner(headBasicInfo);
 
             for (int i = 0; i < orderNum - 1; i++)
             {
                 if (!IsOrderValid(orderHashes[i])) return new byte[][] { };
-                byte[] currentBasisInfo = Storage.Get(Storage.CurrentContext, ORDER_BASIC.Concat(orderHashes[i]));
-                byte[] nextBasisInfo = Storage.Get(Storage.CurrentContext, ORDER_BASIC.Concat(orderHashes[i+1]));
+                byte[] currentBasicInfo = Storage.Get(Storage.CurrentContext, ORDER_BASIC.Concat(orderHashes[i]));
+                byte[] nextBasicInfo = Storage.Get(Storage.CurrentContext, ORDER_BASIC.Concat(orderHashes[i+1]));
                 //the sell token of the pre node should be equal with the buy token of the next node
-                if (GetTokenS(currentBasisInfo) != GetTokenB(nextBasisInfo)) return new byte[][] { };
+                if (GetTokenS(currentBasicInfo) != GetTokenB(nextBasicInfo)) return new byte[][] { };
                 //the amount could be sold of current node must less than or equal to the amount of the next node to buy
                 if (currentSamount > GetRemainderB(orderHashes[i])) return new byte[][] { };
 
@@ -622,23 +602,21 @@ namespace LoopringProtocol
                 BigInteger nextPlanToSell = Storage.Get(Storage.CurrentContext, AMOUNT_TO_SELL.Concat(orderHashes[i])).AsBigInteger();
 
                 //caculate the amount to sell of next node
-                BigInteger nextSamount = nextPlanToSell * (currentSamount / nextPlanToBuy);
+                BigInteger nextSamount = nextPlanToSell * currentSamount / nextPlanToBuy;
 
                 //get the remainder of the next node to sell in database
                 BigInteger nextRemainderSAmount = GetRemainderS(orderHashes[i]);
                 if (nextSamount > nextRemainderSAmount) return new byte[][] { };
 
-                operateArray[i] = GetTokenS(currentBasisInfo).Concat(GetOwner(currentBasisInfo)).Concat(GetOwner(nextBasisInfo)).Concat(currentSamount.ToByteArray());
-                Storage.Put(Storage.CurrentContext, "operateArray" + i, operateArray[i]);
+                operateArray[i] = GetTokenS(currentBasicInfo).Concat(GetOwner(currentBasicInfo)).Concat(GetOwner(nextBasicInfo)).Concat(currentSamount.ToByteArray());
                 currentSamount = nextSamount;
 
                 //the last node should transfer to the head node
                 if(i == orderNum - 2)
                 {
-                    if(currentSamount <= headRemainderBAmount)
+                    if(currentSamount >= headRemainderBAmount - GetEquivalentRange(GetTokenS(headBasicInfo)))
                     {
-                        operateArray[orderNum - 1] = GetTokenS(nextBasisInfo).Concat(GetOwner(nextBasisInfo)).Concat(headOwner).Concat(nextSamount.ToByteArray());
-                        Storage.Put(Storage.CurrentContext, "operateArraylast", operateArray[orderNum - 1]);
+                        operateArray[orderNum - 1] = GetTokenS(nextBasicInfo).Concat(GetOwner(nextBasicInfo)).Concat(headOwner).Concat(nextSamount.ToByteArray());
                     } else {
                         return new byte[][] { };
                     }
@@ -658,21 +636,11 @@ namespace LoopringProtocol
         /// </returns>
         private static BigInteger GetRemainderS(byte[] orderHash)
         {
-            byte[] status = Storage.Get(Storage.CurrentContext, ORDER_STATUS.Concat(orderHash));
             BigInteger amountS = Storage.Get(Storage.CurrentContext, AMOUNT_TO_SELL.Concat(orderHash)).AsBigInteger();
-            if (status == Trading)
-            {
-                if(Storage.Get(Storage.CurrentContext, SOLD_AMOUNT.Concat(orderHash)).AsBigInteger() == 0)
-                {
-                    return amountS;
-                } else
-                {
-                    return amountS - Storage.Get(Storage.CurrentContext, SOLD_AMOUNT.Concat(orderHash)).AsBigInteger();
-                }
-
-            } else
-            {
-                return 0;
+            if (Storage.Get(Storage.CurrentContext, SOLD_AMOUNT.Concat(orderHash)).AsBigInteger() == 0) {
+                return amountS;
+            } else {
+                return amountS - Storage.Get(Storage.CurrentContext, SOLD_AMOUNT.Concat(orderHash)).AsBigInteger();
             }
         }
 
@@ -687,22 +655,40 @@ namespace LoopringProtocol
         /// </returns>
         private static BigInteger GetRemainderB(byte[] orderHash)
         {
-            byte[] status = Storage.Get(Storage.CurrentContext, ORDER_STATUS.Concat(orderHash));
             BigInteger amountB = Storage.Get(Storage.CurrentContext, AMOUNT_TO_BUY.Concat(orderHash)).AsBigInteger();
-            if (status == Trading)
-            {
-                if (Storage.Get(Storage.CurrentContext, BOUGHT_AMOUNT.Concat(orderHash)).AsBigInteger() == 0)
-                {
-                    return amountB;
-                }
-                else
-                {
-                    return amountB - Storage.Get(Storage.CurrentContext, BOUGHT_AMOUNT.Concat(orderHash)).AsBigInteger();
-                }
-            } else
-            {
-                return 0;
+            if (Storage.Get(Storage.CurrentContext, BOUGHT_AMOUNT.Concat(orderHash)).AsBigInteger() == 0){
+                return amountB;
+            } else {
+                return amountB - Storage.Get(Storage.CurrentContext, BOUGHT_AMOUNT.Concat(orderHash)).AsBigInteger();
             }
+        }
+
+        /// <summary>
+        ///  Get the sold amount
+        /// </summary>
+        /// <param name="args">
+        /// orderHash
+        /// </param>
+        /// <returns>
+        /// the sold amount
+        /// </returns>
+        private static BigInteger GetSoldAmount(byte[] orderHash)
+        {
+            return Storage.Get(Storage.CurrentContext, SOLD_AMOUNT.Concat(orderHash)).AsBigInteger();
+        }
+
+        /// <summary>
+        ///  Get the bought amount to buy
+        /// </summary>
+        /// <param name="args">
+        /// orderHash
+        /// </param>
+        /// <returns>
+        /// the bought amount to buy
+        /// </returns>
+        private static BigInteger GetBoughtAmount(byte[] orderHash)
+        {
+            return Storage.Get(Storage.CurrentContext, BOUGHT_AMOUNT.Concat(orderHash)).AsBigInteger();
         }
 
         /// <summary>
