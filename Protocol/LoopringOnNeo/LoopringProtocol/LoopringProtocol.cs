@@ -157,25 +157,25 @@ namespace LoopringProtocol
 
             var itx = (InvocationTransaction)tx;
             //2 or 3 nodes in a ring now
-            if (itx.Script.Length != 100 || itx.Script.Length != 132)
+            if (itx.Script.Length != 100 && itx.Script.Length != 132)
             {
                 Runtime.Log("Script Length illegal!");
                 return false;
             }
 
-            if (itx.Script[0] != 65 || itx.Script[0] != 97) return false;
+            if (itx.Script[0] != 65 && itx.Script[0] != 97) return false;
             if (itx.Script[0] == 65 && itx.Script[1] != 2) return false;
             if (itx.Script[0] == 97 && itx.Script[1] != 3) return false;
 
             if(itx.Script[1] == 2)
             {
-                if (itx.Script.Range(65, 34) != (new byte[] { 0x51, 0xc1, 0x0a }).Concat(METHOD_SUBMIT_RING).Concat(new byte[] { 0x67 }).Concat(ExecutionEngine.ExecutingScriptHash))
+                if (itx.Script.Range(66, 34) != (new byte[] { 0x51, 0xc1, 0x0a }).Concat(METHOD_SUBMIT_RING).Concat(new byte[] { 0x67 }).Concat(ExecutionEngine.ExecutingScriptHash))
                 {
                     Runtime.Log("Script illegal!");
                     return false;
                 }
             } else {
-                if (itx.Script.Range(97, 34) != (new byte[] { 0x51, 0xc1, 0x0a }).Concat(METHOD_SUBMIT_RING).Concat(new byte[] { 0x67 }).Concat(ExecutionEngine.ExecutingScriptHash))
+                if (itx.Script.Range(98, 34) != (new byte[] { 0x51, 0xc1, 0x0a }).Concat(METHOD_SUBMIT_RING).Concat(new byte[] { 0x67 }).Concat(ExecutionEngine.ExecutingScriptHash))
                 {
                     Runtime.Log("Script illegal!");
                     return false;
