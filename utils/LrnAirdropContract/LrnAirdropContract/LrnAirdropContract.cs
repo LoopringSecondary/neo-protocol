@@ -14,9 +14,9 @@ namespace LrnAirdropContract
         //private const int FIRST_AIRDROP_START_TIME = 1530633600;//2018-07-04 00:00:00
         //private const int SECOND_AIRDROP_START_TIME = 1535990400;//2018-09-04 00:00:00
         //private const int THIRD_AIRDROP_START_TIME = 1541260800;//2018-11-04 00:00:00
-        private const int FIRST_AIRDROP_START_TIME = 1514995200;//2018-01-04 00:00:00
-        private const int SECOND_AIRDROP_START_TIME = 1520092800;//2018-03-04 00:00:00
-        private const int THIRD_AIRDROP_START_TIME = 1525363200;//2018-05-04 00:00:00
+        private const int FIRST_AIRDROP_START_TIME = 1530028800;//2018-06-27 00:00:00
+        private const int SECOND_AIRDROP_START_TIME = 1530115200;//2018-06-28 00:00:00
+        private const int THIRD_AIRDROP_START_TIME = 1530201600;//2018-06-29 00:00:00
 
         private const Int64 TOTAL_AMOUNT_PER_PHASE = 2790152100000000;
         private const Int64 TOTAL_AIRDROP_AMOUNT = 8370456300000000;
@@ -24,7 +24,10 @@ namespace LrnAirdropContract
         private const string AIR_DROP_SUPPLY = "airdropSupply";
         private const string AIR_DROP_ACCOUNT_NUM = "airdropAccountNum";
         private const string LAST_WITHDRAW_TIME = "lastWithdrawTime";
-        private const string WITHDRAW_SWITCH = "WithdrawSwitch";
+        private const string WITHDRAW_SWITCH = "withdrawSwitch";
+        private const string WITHDRAW_NO = "withdrawNo";
+        private const string TX = "txInfo";
+
         private const int SECONDS_PER_DAY = 86400;
         private const int PERIOD = 730;
         private const int COMPENSATE_TIME = 86399;
@@ -68,7 +71,6 @@ namespace LrnAirdropContract
                 var invocationTransaction = (InvocationTransaction)tx;
                 if (invocationTransaction.Script.Length != 61)
                 {
-                    Runtime.Log("Script Length illegal!");
                     return false;
                 }
 
@@ -76,7 +78,6 @@ namespace LrnAirdropContract
 
                 if (invocationTransaction.Script.Range(29, 32) != (new byte[] { 0x51, 0xc1, 0x08 }).Concat("withdraw".AsByteArray()).Concat(new byte[] { 0x67 }).Concat(ExecutionEngine.ExecutingScriptHash))
                 {
-                    Runtime.Log("Script illegal!");
                     return false;
                 }
 
@@ -129,6 +130,12 @@ namespace LrnAirdropContract
                 {
                     return QueryAirdropAccount(args); 
                 }
+                if (operation == "queryData")
+                {
+                    byte[] key = (byte[])args[0];
+                    return Storage.Get(Storage.CurrentContext, key);
+                }
+
             }
             return false;
         }
@@ -213,7 +220,7 @@ namespace LrnAirdropContract
             BigInteger thirdAvailbableAmount = CalcAvailableAmount(account, THIRD_PHASE_PREFIX);
             BigInteger withdrawAmount = firstAvailbableAmount + secondAvailbableAmount + thirdAvailbableAmount;
 
-            if (withdrawAmount < 1) return false;
+            if (withdrawAmount < 1) throw new Exception();
 
             byte[] from = Neo.SmartContract.Framework.Services.System.ExecutionEngine.ExecutingScriptHash;
             // call lrn transfer
@@ -223,6 +230,11 @@ namespace LrnAirdropContract
             {
                 BigInteger now = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp;
                 Storage.Put(Storage.CurrentContext, account.Concat(LAST_WITHDRAW_TIME.AsByteArray()), now);
+                BigInteger withdrawNo = Storage.Get(Storage.CurrentContext, account.Concat(WITHDRAW_NO.AsByteArray())).AsBigInteger();
+                withdrawNo = withdrawNo + 1;
+                Storage.Put(Storage.CurrentContext, account.Concat(WITHDRAW_NO.AsByteArray()), withdrawNo);
+                Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
+                Storage.Put(Storage.CurrentContext, account.Concat(TX.AsByteArray()).Concat(withdrawNo.AsByteArray()), tx.Hash);
                 Withdrew(account, withdrawAmount);
             }
             else
