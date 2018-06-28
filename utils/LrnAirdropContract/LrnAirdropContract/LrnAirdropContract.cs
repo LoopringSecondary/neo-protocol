@@ -9,14 +9,11 @@ namespace LrnAirdropContract
 {
     public class LrnAirdropContract : SmartContract
     {
-        public static readonly byte[] SuperAdmin = "AR7W16oCGSyKF4ebGjod9EFFwTUyRPZV9o".ToScriptHash();
+        public static readonly byte[] SuperAdmin = "AQtDHMbkS5EovNrXVZAzKULn16P1NyxrXc".ToScriptHash();
         private static readonly byte INVOCATION_TRANSACTION_TYPE = 0xd1;
-        //private const int FIRST_AIRDROP_START_TIME = 1530633600;//2018-07-04 00:00:00
-        //private const int SECOND_AIRDROP_START_TIME = 1535990400;//2018-09-04 00:00:00
-        //private const int THIRD_AIRDROP_START_TIME = 1541260800;//2018-11-04 00:00:00
-        private const int FIRST_AIRDROP_START_TIME = 1530028800;//2018-06-27 00:00:00
-        private const int SECOND_AIRDROP_START_TIME = 1530115200;//2018-06-28 00:00:00
-        private const int THIRD_AIRDROP_START_TIME = 1530201600;//2018-06-29 00:00:00
+        private const int FIRST_AIRDROP_START_TIME = 1530633600;//2018-07-04 00:00:00
+        private const int SECOND_AIRDROP_START_TIME = 1535990400;//2018-09-04 00:00:00
+        private const int THIRD_AIRDROP_START_TIME = 1541260800;//2018-11-04 00:00:00
 
         private const Int64 TOTAL_AMOUNT_PER_PHASE = 2790152100000000;
         private const Int64 TOTAL_AIRDROP_AMOUNT = 8370456300000000;
@@ -35,7 +32,6 @@ namespace LrnAirdropContract
         public static readonly byte[] FIRST_PHASE_PREFIX = "firstPhase".AsByteArray();
         public static readonly byte[] SECOND_PHASE_PREFIX = "secondPhase".AsByteArray();
         public static readonly byte[] THIRD_PHASE_PREFIX = "thirdPhase".AsByteArray();
-
 
         [Appcall("06fa8be9b6609d963e8fc63977b9f8dc5f10895f")]
         static extern object CallLrn(string method, object[] arr);
