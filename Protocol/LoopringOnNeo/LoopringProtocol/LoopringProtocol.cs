@@ -77,6 +77,7 @@ namespace LoopringProtocol
             public BigInteger amountS;
             public BigInteger amountB;
             public BigInteger lrnFee;
+            public BigInteger nonce;
             public byte[] orderHash;
             public byte[] status;
         }
@@ -252,7 +253,7 @@ namespace LoopringProtocol
         /// </returns>
         private static bool CheckOrderParameter(object[] args)
         {
-            if (args.Length != 7) return false;
+            if (args.Length != 8) return false;
             byte[] owner = (byte[])args[0];
             byte[] tokenS = (byte[])args[1];
             byte[] tokenB = (byte[])args[2];
@@ -263,11 +264,12 @@ namespace LoopringProtocol
             BigInteger amountS = (BigInteger)args[4];
             BigInteger amountB = (BigInteger)args[5];
             BigInteger lrnFee = (BigInteger)args[6];
+            BigInteger nonce = (BigInteger)args[7];
 
             //限制灰尘小单
             BigInteger minAmountS = Storage.Get(Storage.CurrentContext, MIN_ORDER_AMOUNT.Concat(tokenS)).AsBigInteger();
             BigInteger minAmountB = Storage.Get(Storage.CurrentContext, MIN_ORDER_AMOUNT.Concat(tokenB)).AsBigInteger();
-            if (amountS <= minAmountS || amountB <= minAmountB || lrnFee < 0) return false;
+            if (amountS <= minAmountS || amountB <= minAmountB || lrnFee < 0 || nonce <= 0) return false;
             return true;
         }
 
@@ -750,8 +752,8 @@ namespace LoopringProtocol
                 .Concat(order.miner)
                 .Concat(order.amountS.AsByteArray())
                 .Concat(order.amountB.AsByteArray())
-                .Concat(order.orderTime.AsByteArray())
-                .Concat(order.lrnFee.AsByteArray());
+                .Concat(order.lrnFee.AsByteArray())
+                .Concat(order.nonce.AsByteArray());
 
             return Hash256(bytes);
         }
