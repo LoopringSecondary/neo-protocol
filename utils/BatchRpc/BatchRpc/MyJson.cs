@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace batchRpc
+namespace BatchRpc
 {
     class MyJson
     {
