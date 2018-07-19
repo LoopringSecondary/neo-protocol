@@ -37,4 +37,4 @@ public static void Main(byte[] assetId)
     BigInteger balanceResult = (BigInteger)balanceContract("balanceOf", balanceArgs);
 }
 ```
-以上两种调用方法都是实际项目里验证过的，有一个要注意的点是：使用中静态调用和动态调用合约地址的大小端是不一样的，比如LRN token scripHash 大端是：0x06fa8be9b6609d963e8fc63977b9f8dc5f10895f, 那么静态调用代码里写的就是06fa8be9b6609d963e8fc63977b9f8dc5f10895f，但是动态调用的时候实际出入的却需要是小端的：5f89105fdcf8b97739c68f3e969d60b6e98bfa06，这是使用上的一个坑。
+以上两种调用方法都是实际项目里验证过的，有一个要注意的点是：使用中静态调用和动态调用合约地址的大小端是不一样的，比如LRN token scripHash 大端是：0x06fa8be9b6609d963e8fc63977b9f8dc5f10895f, 那么静态调用代码里写的就是06fa8be9b6609d963e8fc63977b9f8dc5f10895f，但是动态调用的时候实际的参数传入却需要小端的：5f89105fdcf8b97739c68f3e969d60b6e98bfa06，这是使用上的一个坑。
