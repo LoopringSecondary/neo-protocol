@@ -77,17 +77,17 @@ if (Runtime.Trigger == TriggerType.Verification)
 	Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
 	var type = tx.Type;
 
-	 if (type != INVOCATION_TRANSACTION_TYPE) return false;
+	if (type != INVOCATION_TRANSACTION_TYPE) return false;
 
 	var invocationTransaction = (InvocationTransaction)tx;
 	if (invocationTransaction.Script.Length != 61)
-	 {
+	{
 		return false;
 	}
 
-	 if (invocationTransaction.Script[0] != 0x1c) return false;
+	if (invocationTransaction.Script[0] != 0x1c) return false;
 
-	 if (invocationTransaction.Script.Range(29, 32) != (new byte[] { 0x51, 0xc1, 0x08 }).Concat("withdraw".AsByteArray()).Concat(new byte[] { 0x67 }).Concat(ExecutionEngine.ExecutingScriptHash))
+	if (invocationTransaction.Script.Range(29, 32) != (new byte[] { 0x51, 0xc1, 0x08 }).Concat("withdraw".AsByteArray()).Concat(new byte[] { 0x67 }).Concat(ExecutionEngine.ExecutingScriptHash))
 	{
 		return false;
 	}
