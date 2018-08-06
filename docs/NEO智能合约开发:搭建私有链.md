@@ -3,9 +3,11 @@
 ## 一、虚拟机
 
 NEO 私有链的部署至少需要 4 台服务器才能取得共识，每台服务器对应一个共识节点。  
-小提示: 推荐使用parallels desktop来配置虚拟机。
- 
+这里使用parallels desktop来配置虚拟机。
 首先准备好要安装某系统的iso影像，利用iso影像安装一个系统之后再克隆3个虚拟机，虚拟机默认的上网方式是默认适配器。
+
+## 二、下载安装Neo节点
+[NEO官网私链搭建](http://docs.neo.org/zh-cn/network/private-chain.html)
 
 ### 常见问题及解决办法：
 **问题1: 网络是正常的，但是外部的地址和虚拟机无法通讯。**
@@ -17,8 +19,7 @@ NEO 私有链的部署至少需要 4 台服务器才能取得共识，每台服�
 2. 也可以去云服务器上租用4个虚拟机，成本率高。
 
 **问题3: 虚拟机间共识问题。**
-每个虚拟机都要关闭专用网络的防火墙、不然虚拟机与虚拟机之间不能达成共识.  
-另外要新建端口:**防火墙--高级设置--入站规则--新建规则**，然后分别添加端口 10331-10334。![img](https://lh3.googleusercontent.com/-U82ngkMbDt91qgAvZ-Iy33VMZTNTMeiGffOM6Qf1UxFxnHPOYQKRnUT3unKuLlIXf1SaU4KXei0A5plpa3F-BEk_Wr1ASnrW_9mBrQlNbCuD3VT7af9zxbFxklI1ZCALKQFhuMI)
+每个虚拟机都要关闭专用网络的防火墙、不然虚拟机与虚拟机之间不能达成共识。  
+另外要新建端口:**防火墙--高级设置--入站规则--新建规则**，然后分别添加端口 10331-10334。
 
-## 二、下载安装Neo节点
-[NEO官网私链搭建](http://docs.neo.org/zh-cn/network/private-chain.html)
+
