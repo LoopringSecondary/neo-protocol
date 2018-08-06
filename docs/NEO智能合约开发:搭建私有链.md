@@ -8,16 +8,16 @@ NEO 私有链的部署至少需要 4 台服务器才能取得共识，每台服�
 首先准备好要安装某系统的iso影像，利用iso影像安装一个系统之后再克隆3个虚拟机，虚拟机默认的上网方式是默认适配器。
 
 ### 常见问题及解决办法：
-**问题1: 网络是正常的，但是外部的地址和虚拟机无法通讯的**
+**问题1: 网络是正常的，但是外部的地址和虚拟机无法通讯。**
 解决办法:
 只有改变了虚拟机的mac物理地址并且关闭专用网络的防火墙，才能和外部地址进行通讯。
 打开parallels desktop控制中心、在您想配置虚拟机的地方**生成新的Mac地址**-然后关闭这个窗口-再打开进入虚拟机--禁用网卡再重启网卡，这样您的虚拟机即可以连接到网络又可以和外部地址进行通讯了。
 
-**问题2: 电脑重启的时候虚拟机的ip发生变化，结果导致您不但每次都要生成新的mac地址，而且还要修改私有链的配置文件，相对来说；比较麻烦！**
+**问题2: 电脑重启的时候虚拟机的ip发生变化，结果不但每次都要生成新的mac地址，而且还要修改私有链的配置文件，比较麻烦。**  
 建议及解决办法；
 1. 如果是个人独立去完成搭建私有链的话、可以找”网络管理员” 或 “网络供应商” 提供给您4个固定的静态ip，这样的话就可以解决很多的麻烦！完全不用担心虚拟机的网络问题。
 2. 如果是个人完成私有链的话；可以去云服务器上租用4个虚拟机，成本率高！
-3. 每个虚拟机都要关闭专用网络的防火墙、不然虚拟机与虚拟机之间不能达成共识、另外要新建端口:**防火墙--高级设置--入站规则--新建规则**，然后分别添加端口 10331-10334，端口名gas。![img](https://lh3.googleusercontent.com/-U82ngkMbDt91qgAvZ-Iy33VMZTNTMeiGffOM6Qf1UxFxnHPOYQKRnUT3unKuLlIXf1SaU4KXei0A5plpa3F-BEk_Wr1ASnrW_9mBrQlNbCuD3VT7af9zxbFxklI1ZCALKQFhuMI)
+3. 每个虚拟机都要关闭专用网络的防火墙、不然虚拟机与虚拟机之间不能达成共识、另外要新建端口:**防火墙--高级设置--入站规则--新建规则**，然后分别添加端口 10331-10334。![img](https://lh3.googleusercontent.com/-U82ngkMbDt91qgAvZ-Iy33VMZTNTMeiGffOM6Qf1UxFxnHPOYQKRnUT3unKuLlIXf1SaU4KXei0A5plpa3F-BEk_Wr1ASnrW_9mBrQlNbCuD3VT7af9zxbFxklI1ZCALKQFhuMI)
 
 ## 二、下载安装Neo节点
 [NEO官网私链搭建](http://docs.neo.org/zh-cn/network/private-chain.html)
