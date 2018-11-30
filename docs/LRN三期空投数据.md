@@ -1,7 +1,7 @@
 # LRN二期空投数据说明  
 
-&emsp;&emsp;LRN第三期空投快照高度6789888，共有854个小蚁地址符合条件，共空投2151812.5个LRN。空投数据于2018年11月30号写入智能合约5ca41c4450b4e3d2cfe8abb8956189b13a64c5f7。
-&emsp;&emsp;以下附上符合最终条件的以太坊和小蚁绑定列表，以及符合条件的LRC数量。
+&emsp;&emsp;LRN第三期空投快照高度6789888，共有854个小蚁地址符合条件，共空投2151812.5个LRN。空投数据于2018年11月30号写入智能合约5ca41c4450b4e3d2cfe8abb8956189b13a64c5f7。以下附上符合最终条件的以太坊和小蚁绑定列表，以及符合条件的LRC数量。  
+
 0xb63b22f3ddcc7f469bcb757a5b64a3848f4c4f03,AUqPA7hEmdU8yVgKvWr2tYtcEpeLfgG7oB,250000
 0xe516a08a8588f26fd2bee405fc75191a3ef367bb,AWFcqYHRcUCfn15ngWgnZUGKPKzZ2Sz3Ht,250000
 0x7219486e015a88320e1037606591473e2a950cbb,AetBPPUxruov55QPuZwNpHX7xosKvBpfee,349999
