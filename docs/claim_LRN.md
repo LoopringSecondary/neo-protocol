@@ -1,6 +1,6 @@
 # How Claim LRN
 
-We assume you have a basic understanding of how NEO works and the NEO RPC services; otherwise, this will be challanging for you.
+We assume you have a basic understanding of how NEO works and the NEO RPC services; otherwise, this will be challenging for you.
 
 There are two steps to claim LRN:
 
@@ -48,7 +48,7 @@ The following is an example of the response. If the value is greater than 0, you
 Please check out the [sendrawtransaction doc](http://docs.neo.org/zh-cn/node/cli/2.7.4/api/sendrawtransaction.html) for how to send raw transactions. And here is an [example](https://neotracker.io/tx/de8b5e8dcd601ff3ec8ebb5c9835fb7ac002650db32601bb92d772f6088d4ee5) for LRN withdrawal.
 
 The script to run is `1c2018072413270000a60f148dd6df43259886e10e4fd26d896e2394eb51c108776974686472617767f7c5643ab1896195b8abe8cfd2e3b450441ca45c`.
-You need to replace `2018072413270000a60f148dd6df43259886e10e4fd26d896e2394eb` with something new. The first 8 bytes (`2018072413270000`) is a random number; the remaining part (`a60f148dd6df43259886e10e4fd26d896e2394eb`) is your address's scriptHash. Neo changed its fee model in 2019 so all transactions greater than 1024 bytes need to pay fees. To reduce the transaction size, authorization scripts are no longer provided in transactions. Please check out this [transaciton](https://neotracker.io/tx/43b530e62377ad4c5b5b2b6468963582ccbbfa4b4cab239a09e1666a4dd98039) for more information. Please read NEO's documentation for more informaiton or contact NEO.
+You need to replace `2018072413270000a60f148dd6df43259886e10e4fd26d896e2394eb` with something new. The first 8 bytes (`2018072413270000`) is a random number; the remaining part (`a60f148dd6df43259886e10e4fd26d896e2394eb`) is your address's scriptHash. Neo changed its fee model in 2019, and all transactions greater than 1024 bytes need to pay fees. To reduce the transaction size, authorization scripts may no longer part of such transactions. Please check out this [transaciton](https://neotracker.io/tx/43b530e62377ad4c5b5b2b6468963582ccbbfa4b4cab239a09e1666a4dd98039) for more information. Please read NEO's documentation for more information or contact NEO.
 
 ## The airdrop is 100% contract based
 
